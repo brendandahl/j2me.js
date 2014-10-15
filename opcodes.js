@@ -23,7 +23,7 @@ var OPCODES = (function () {
                  "ireturn", "lreturn", "freturn", "dreturn", "areturn", "return", "getstatic", "putstatic", "getfield",
                  "putfield", "invokevirtual", "invokespecial", "invokestatic", "invokeinterface", "", "new", "newarray",
                  "anewarray", "arraylength", "athrow", "checkcast", "instanceof", "monitorenter", "monitorexit", "wide",
-                 "multianewarray", "ifnull", "ifnonnull", "goto_w", "jsr_w"];
+                 "multianewarray", "ifnull", "ifnonnull", "goto_w", "jsr_w", "invokevirtual_quick"];
     var opcodes = {};
     for (var opcode = 0; opcode < table.length; ++opcode) {
         var name = table[opcode];

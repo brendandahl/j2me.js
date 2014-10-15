@@ -50,6 +50,7 @@ function MethodInfo(opts) {
     this.signature = opts.signature;
     this.classInfo = opts.classInfo;
     this.attributes = opts.attributes || [];
+    this.index = opts.index;
 
     // Use code if provided, otherwise search for the code within attributes.
     if (opts.code) {
@@ -132,7 +133,7 @@ var ClassInfo = function(classBytes) {
     });
 
     this.methods = [];
-    classImage.methods.forEach(function(m) {
+    classImage.methods.forEach(function(m, i) {
         self.methods.push(new MethodInfo({
             name: cp[m.name_index].bytes,
             signature: cp[m.signature_index].bytes,
@@ -141,7 +142,8 @@ var ClassInfo = function(classBytes) {
             isNative: ACCESS_FLAGS.isNative(m.access_flags),
             isPublic: ACCESS_FLAGS.isPublic(m.access_flags),
             isStatic: ACCESS_FLAGS.isStatic(m.access_flags),
-            isSynchronized: ACCESS_FLAGS.isSynchronized(m.access_flags)
+            isSynchronized: ACCESS_FLAGS.isSynchronized(m.access_flags),
+            index: i
         }));
     });
 

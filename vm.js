@@ -1020,6 +1020,12 @@ VM.execute = function(ctx) {
                           methodInfo = CLASSES.getMethod(obj.class, methodInfo.key);
                         }
                     }
+                    if (op === OPCODES.invokevirtual) { //  && obj.class.className === 'benchmark/NextClass') {
+                        frame.code[frame.ip - 3] = OPCODES.invokevirtual_quick;
+                        // !!!!!!!!!! This should really insert one more byte in in case method info or consumes is > 255.
+                        frame.code[frame.ip - 2] = consumes;
+                        frame.code[frame.ip - 1] = methodInfo.index & 0xff
+                    }
                     break;
                 }
             }
@@ -1063,6 +1069,17 @@ VM.execute = function(ctx) {
             if (ctx.frames.length == 1)
                 return;
             popFrame(2);
+            break;
+        case 0xca: // invokevirtual_quick
+            var idx = frame.read8();
+            var consumes = frame.read8();
+            var obj = stack[stack.length - consumes];
+            if (!obj) {
+                ctx.raiseExceptionAndYield("java/lang/NullPointerException");
+                break;
+            }
+            var methodInfo = obj.class.methods[idx];
+            pushFrame(methodInfo, consumes);
             break;
         default:
             var opName = OPCODES[op];
