@@ -3,6 +3,8 @@
 
 'use strict';
 
+window.go = window.performance.now();
+
 function load(file, responseType) {
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
@@ -37,10 +39,11 @@ var jvm = new JVM();
 var main = urlParams.main || "com/sun/midp/main/MIDletSuiteLoader";
 MIDP.midletClassName = urlParams.midletClassName ? urlParams.midletClassName.replace(/\//g, '.') : "RunTests";
 
-var jars = ["java/classes.jar", "tests/tests.jar"];
+var jars = ["java/classes.jar"];//, "tests/tests.jar"];
 if (urlParams.jars) {
   jars = jars.concat(urlParams.jars.split(":"));
 }
+console.log(jars);
 
 if (urlParams.pushConn && urlParams.pushMidlet) {
   MIDP.ConnectionRegistry.addConnection({
@@ -105,6 +108,7 @@ if (MIDP.midletClassName == "RunTests") {
 Promise.all(loadingPromises).then(function() {
   jvm.initializeBuiltinClasses();
   jvm.startIsolate0(main, urlParams.args);
+  // CLASSES.compileAll();
 });
 
 function getIsOff(button) {
