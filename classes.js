@@ -190,3 +190,55 @@ Classes.prototype.getMethod = function(classInfo, methodKey) {
         }
     }
 };
+
+var all = 'var precompiled = {};';
+
+Classes.prototype.compileAll = function() {
+    var classfiles = this.classfiles;
+    var methodsCompiled = 0;
+    Object.keys(classfiles).every(function (name) {
+        if (name.substr(-4) !== ".jar") {
+            return true;
+        }
+        console.log('Compiling jar: ' + name);
+        var zip = classfiles[name];
+        Object.keys(zip.directory).every(function (filename) {
+            if (filename.substr(-6) !== '.class') {
+                return true;
+            }
+            var c = this.loadClassFile(filename);
+            for (var i = 0; i < c.methods.length; i++) {
+                var method = c.methods[i];
+                if (method.alternateImpl || !method.code) {
+                    continue;
+                }
+                try {
+                    var compiled = VM.compile(method);
+                    methodsCompiled++;
+                } catch (e) {
+                    console.log(e);
+                    continue;
+                }
+                all += 'precompiled[\'' + method.implKey + '\'] = function(ctx) {\n' + compiled + '\n};';
+            }
+            return true;
+        }.bind(this));
+        return true;
+    }.bind(this));
+    console.log("Number of methods compiled: " + methodsCompiled);
+    var bl = new Blob([all], {type : 'text/plain'});
+    console.log(URL.createObjectURL(bl));
+};
+
+
+
+
+
+
+
+
+
+
+
+
+

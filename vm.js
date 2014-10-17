@@ -1052,6 +1052,9 @@ VM.execute = function(ctx) {
             }
 
             Instrument.callPauseHooks(frame);
+            if (methodInfo.implKey in precompiled) {
+                methodInfo.compiled = precompiled[methodInfo.implKey];
+            }
             if (!methodInfo.compiled && methodInfo.numCalled >= 100 && !methodInfo.dontCompile) {
                 try {
                   methodInfo.compiled = new Function("ctx", VM.compile(methodInfo, ctx));
@@ -1233,7 +1236,8 @@ VM.compile = function(methodInfo, ctx) {
           constant = constant.float;
           break;
         case 8: // TAGS.CONSTANT_String
-          constant = ctx.newString(cp[constant.string_index].bytes);
+        // debugger;
+          // constant = ctx.newString(cp[constant.string_index].bytes);
           break;
         case 5: // TAGS.CONSTANT_Long
           constant = Long.fromBits(constant.lowBits, constant.highBits);
@@ -1250,6 +1254,7 @@ VM.compile = function(methodInfo, ctx) {
           var signature = cp[cp[constant.name_and_type_index].signature_index].bytes;
           constant = CLASSES.getField(classInfo, (isStatic ? "S." : "I.") + fieldName + "." + signature);
           if (!constant) {
+            debugger;
             throw new Error("java/lang/RuntimeException");
           }
           break;
@@ -1278,7 +1283,9 @@ VM.compile = function(methodInfo, ctx) {
     // On handler IPs, an exception is put on the stack
     stackLayout.set(exception_table[i].handler_pc, 1);
   }
-
+if (!frame.code) {
+    debugger;
+}
   while (frame.ip !== frame.code.byteLength) {
     ip = frame.ip;
 
@@ -1353,6 +1360,8 @@ VM.compile = function(methodInfo, ctx) {
           constant = resolveCompiled(cp, idx);
         }
 
+        code += "resolve(ctx, cp, " + idx + ");\n";
+
         code += generateStackPush("cp[" + idx + "]");
         break;
       case 0x14: // ldc2_w
@@ -1363,7 +1372,7 @@ VM.compile = function(methodInfo, ctx) {
         if (constant.tag) {
           constant = resolveCompiled(cp, idx);
         }
-
+        code += "resolve(ctx, cp, " + idx + ");\n";
         code += generateStackPush2("cp[" + idx + "]");
         break;
       case 0x15: // iload
@@ -1933,7 +1942,7 @@ VM.compile = function(methodInfo, ctx) {
         code += generateStackPush(generateStackPop2() + ".toInt()");
         break;
       case 0x89: // l2f
-        code += generateStackPush("Math.fround(" + generateStackPop2() + ".toNumber()");
+        code += generateStackPush("Math.fround(" + generateStackPop2() + ".toNumber())");
         break;
       case 0x8a: // l2d
         code += generateStackPush2(generateStackPop2() + ".toNumber()");
@@ -2048,6 +2057,7 @@ VM.compile = function(methodInfo, ctx) {
         if (classInfo.tag) {
           classInfo = resolveCompiled(cp, idx);
         }
+        code += "resolve(ctx, cp, " + idx + ");\n";
 
         var className = classInfo.className;
         if (className[0] !== "[") {
@@ -2072,6 +2082,7 @@ VM.compile = function(methodInfo, ctx) {
         if (classInfo.tag) {
           classInfo = resolveCompiled(cp, idx);
         }
+        code += "resolve(ctx, cp, " + idx + ");\n";
 
         var dimensions = frame.read8();
 
@@ -2100,6 +2111,7 @@ VM.compile = function(methodInfo, ctx) {
         if (field && field.tag) {
           field = resolveCompiled(cp, idx, false);
         }
+        code += "resolve(ctx, cp, " + idx + ");\n";
 
         var obj = generateStackPop();
 
@@ -2124,6 +2136,7 @@ VM.compile = function(methodInfo, ctx) {
         if (field && field.tag) {
           field = resolveCompiled(cp, idx, false);
         }
+        code += "resolve(ctx, cp, " + idx + ");\n";
 
         var val;
         if (field.signature === "J" || field.signature === "D") {
@@ -2150,6 +2163,7 @@ VM.compile = function(methodInfo, ctx) {
         if (field && field.tag) {
           field = resolveCompiled(cp, idx, true);
         }
+        code += "resolve(ctx, cp, " + idx + ", true);\n";
 
         code += "\
         var field = cp[" + idx + "];\n";
@@ -2183,6 +2197,7 @@ VM.compile = function(methodInfo, ctx) {
         if (field.tag) {
           field = resolveCompiled(cp, idx, true);
         }
+        code += "resolve(ctx, cp, " + idx + ", true);\n";
 
         code += "\
         var field = cp[" + idx + "];\n";
@@ -2214,6 +2229,7 @@ VM.compile = function(methodInfo, ctx) {
         if (classInfo.tag) {
           classInfo = resolveCompiled(cp, idx);
         }
+        code += "resolve(ctx, cp, " + idx + ");\n";
 
         code += "\
         var classInfo = cp[" + idx + "];\n";
@@ -2237,6 +2253,7 @@ VM.compile = function(methodInfo, ctx) {
         if (classInfo.tag) {
           classInfo = resolveCompiled(cp, idx);
         }
+        code += "resolve(ctx, cp, " + idx + ");\n";
 
         var obj = "S" + (depth-1);
 
@@ -2260,6 +2277,7 @@ VM.compile = function(methodInfo, ctx) {
         if (classInfo.tag) {
           classInfo = resolveCompiled(cp, idx);
         }
+        code += "resolve(ctx, cp, " + idx + ");\n";
 
         var obj = generateStackPop();
 
@@ -2357,6 +2375,7 @@ VM.compile = function(methodInfo, ctx) {
         if (toCallMethodInfo.tag) {
           toCallMethodInfo = resolveCompiled(cp, idx, isStatic);
         }
+        code += "resolve(ctx, cp, " + idx + "," + isStatic + ");\n";
 
         code += "        var toCallMethodInfo = cp[" + idx + "];\n";
 
