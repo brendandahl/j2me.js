@@ -3,6 +3,12 @@ module J2ME {
   var debug = false;
   var writer = new IndentingWriter(!debug);
 
+  export var counter = new J2ME.Metrics.Counter(true);
+
+  export function printResults() {
+    counter.trace(new IndentingWriter());
+  }
+
   import Block = Bytecode.Block;
   import BlockMap = Bytecode.BlockMap;
 
@@ -548,7 +554,15 @@ module J2ME {
   }
 
   export function compileMethodInfo(methodInfo: MethodInfo, ctx: Context, target: CompilationTarget, dependencies?: Dependencies) {
-    if (!methodInfo.code || methodInfo.isSynchronized || methodInfo.exception_table.length) {
+    counter.count("Trying to Compile");
+    if (!methodInfo.code) {
+      counter.count("Cannot Compile: Method has no code.");
+      return;
+    } else if (methodInfo.isSynchronized) {
+      counter.count("Cannot Compile: Method is synchronized.");
+      return;
+    } else if (methodInfo.exception_table.length) {
+      counter.count("Cannot Compile: Method has exception handlers.");
       return;
     }
     var builder = new Builder(methodInfo, ctx, target, dependencies);
@@ -567,7 +581,9 @@ module J2ME {
       var fnSource = compilation.body;
       fn = new Function(args.join(","), fnSource);
       debug && writer.writeLn(fn.toString());
+      counter.count("Compiled");
     } catch (e) {
+      counter.count("Failed to Compile " + e);
       debug && Debug.warning("Failed to compile " + methodInfo.implKey + " " + e + " " + e.stack);
       if (e.message.indexOf("Not Implemented ") === -1) {
         throw e;
