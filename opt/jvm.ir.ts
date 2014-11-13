@@ -173,6 +173,8 @@ module J2ME.C4.Backend {
         jsTypedArrayType = "Int32Array";
         break;
       case Kind.Char:
+        jsTypedArrayType = "Uint16Array";
+        break;
       case Kind.Short:
         jsTypedArrayType = "Int16Array";
         break;
