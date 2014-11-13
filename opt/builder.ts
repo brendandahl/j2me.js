@@ -501,7 +501,7 @@ module J2ME {
   }
 
   export function compileMethodInfo(methodInfo: MethodInfo, ctx: Context, target: CompilationTarget) {
-    if (!methodInfo.code || methodInfo.name == "<init>" || methodInfo.isSynchronized || methodInfo.exception_table.length) {
+    if (!methodInfo.code || methodInfo.isSynchronized || methodInfo.exception_table.length) {
       return;
     }
     var builder = new Builder(methodInfo, ctx, target);
