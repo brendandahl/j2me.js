@@ -1045,6 +1045,16 @@ module J2ME {
       this.recordStore(call);
     }
 
+    genInstanceOf(cpi: Bytecodes) {
+      var classInfo = this.ctx.resolve(this.methodInfo.classInfo.constant_pool, cpi, false);
+      var obj = this.state.apop();
+      this.ctx.classInfos[classInfo.className] = classInfo;
+      this.ctx.methodInfos[this.methodInfo.implKey] = this.methodInfo;
+      var call = new IR.JVMCallProperty(this.region, this.state.store, this.state.clone(this.state.bci), this.ctxVar, new Constant("instanceOf"), [new Constant(classInfo.className), obj], this.methodInfo.implKey);
+      this.recordStore(call);
+      this.state.ipush(call);
+    }
+
     genIncrement(stream: BytecodeStream) {
       var index = stream.readLocalIndex();
       var local = this.state.loadLocal(index);
@@ -1559,8 +1569,8 @@ module J2ME {
         case Bytecodes.ARRAYLENGTH    : this.genArrayLength(); break;
         case Bytecodes.ATHROW         : this.genThrow(stream.currentBCI); break;
         case Bytecodes.CHECKCAST      : this.genCheckCast(stream.readCPI()); break;
+        case Bytecodes.INSTANCEOF     : this.genInstanceOf(stream.readCPI()); break;
         /*
-        case Bytecodes.INSTANCEOF     : genInstanceOf(); break;
         case Bytecodes.MONITORENTER   : genMonitorEnter(state.apop()); break;
         case Bytecodes.MONITOREXIT    : genMonitorExit(state.apop()); break;
         case Bytecodes.MULTIANEWARRAY : genNewMultiArray(stream.readCPI()); break;

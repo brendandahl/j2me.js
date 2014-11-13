@@ -161,6 +161,12 @@ Context.prototype.checkCast = function(classInfoId, object) {
   }
 };
 
+Context.prototype.instanceOf = function(classInfoId, object) {
+  var classInfo = this.classInfos[classInfoId];
+  var result = !object ? false : object.class.isAssignableTo(classInfo);
+  return result ? 1 : 0;
+};
+
 Context.prototype.invokeCompiledFn = function(methodInfo, args) {
   args.unshift(this, 0);
   var fn = methodInfo.fn;
