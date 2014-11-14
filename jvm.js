@@ -11,6 +11,10 @@ var JVM = function() {
     } else {
         return new JVM();
     }
+    this.methodInfos = {};
+    this.classInfos = {};
+    this.fieldInfos = {}
+    this.functions = {};
 }
 
 JVM.prototype.addPath = function(path, data) {

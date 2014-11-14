@@ -13,10 +13,10 @@ function Runtime(vm) {
   this.staticFields = {};
   this.classObjects = {};
 
-  this.methodInfos = {};
-  this.classInfos = {};
-  this.fieldInfos = {};
-  this.functions = {};
+  this.methodInfos = vm.methodInfos;
+  this.classInfos = vm.classInfos;
+  this.fieldInfos = vm.fieldInfos;
+  this.functions = vm.functions;
 }
 
 Runtime.prototype.waitStatus = function(callback) {
