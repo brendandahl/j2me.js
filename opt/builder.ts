@@ -1238,7 +1238,7 @@ module J2ME {
     }
 
     lookupField(cpi: number, opcode: Bytecodes, isStatic: boolean): FieldInfo {
-      return this.ctx.resolve(this.methodInfo.classInfo.constant_pool, cpi, isStatic);
+      return this.ctx.runtime.resolve(this.methodInfo.classInfo.constant_pool, cpi, isStatic);
     }
 
     /**
@@ -1438,7 +1438,7 @@ module J2ME {
 
       var object = this.state.apop();
       this.genNullCheck(object, this.state.bci);
-      var getField = new IR.CallProperty(this.region, this.state.store, new IR.Variable('ctx.fieldInfos[' + fieldId + ']'), new Constant('get'), [object]);
+      var getField = new IR.CallProperty(this.region, this.state.store, new IR.Variable('ctx.fieldInfos["' + fieldId + '"]'), new Constant('get'), [object]);
       // TODO Null check and exception throw.
       this.recordLoad(getField);
       this.state.push(signature.kind, getField);
@@ -1454,7 +1454,7 @@ module J2ME {
       var object = this.state.apop();
       this.genNullCheck(object, this.state.bci);
 
-      var putField = new IR.CallProperty(this.region, this.state.store, new IR.Variable('ctx.fieldInfos[' + fieldId + ']'), new Constant('set'), [object, value]);
+      var putField = new IR.CallProperty(this.region, this.state.store, new IR.Variable('ctx.fieldInfos["' + fieldId + '"]'), new Constant('set'), [object, value]);
       this.recordStore(putField);
     }
 
