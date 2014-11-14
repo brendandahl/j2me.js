@@ -10,7 +10,8 @@ var FieldInfo = (function() {
         this.access_flags = access_flags;
         this.name = name;
         this.signature = signature;
-        this.id = idgen++;
+        this.key = (ACCESS_FLAGS.isStatic(this.access_flags) ? "S" : "I") + "." + this.name + "." + this.signature;
+        this.id = this.classInfo.className + "." + this.key;
     }
 })();
 
@@ -88,6 +89,10 @@ function MethodInfo(opts) {
         this.alternateImpl = Override[this.implKey];
     } else {
         this.alternateImpl = null;
+    }
+
+    if (typeof PRECOMPILED !== "undefined" && this.implKey in PRECOMPILED) {
+      this.fn = PRECOMPILED[this.implKey];
     }
 
     this.consumes = Signature.getINSlots(this.signature);

@@ -190,3 +190,53 @@ Classes.prototype.getMethod = function(classInfo, methodKey) {
         }
     }
 };
+
+Classes.prototype.compileAll = function(runtime) {
+  var all = 'var PRECOMPILED = {};';
+  var classfiles = this.classfiles;
+  var methodsCompiled = 0;
+  var methodsFailed = 0;
+  var methodsFailedHard = 0;
+  var dependencies = new J2ME.Dependencies();
+  Object.keys(classfiles).every(function (name) {
+    if (name.substr(-4) !== ".jar") {
+      return true;
+    }
+    console.log('Compiling jar: ' + name);
+    var zip = classfiles[name];
+    Object.keys(zip.directory).every(function (filename) {
+      if (filename.substr(-6) !== '.class') {
+        return true;
+      }
+      var c = this.loadClassFile(filename);
+      for (var i = 0; i < c.methods.length; i++) {
+        var method = c.methods[i];
+        if (method.alternateImpl || !method.code) {
+          continue;
+        }
+        try {
+          var fn = J2ME.compileMethodInfo(method, {runtime: runtime}, J2ME.CompilationTarget.Buildtime, dependencies);
+          if (fn) {
+            methodsCompiled++;
+            all += 'PRECOMPILED[\'' + method.implKey + '\'] = ' + fn.toString() + '\n';
+          } else {
+            methodsFailed++;
+          }
+        } catch (e) {
+          console.log(e);
+          methodsFailedHard++;
+        }
+      }
+      return true;
+    }.bind(this));
+    return true;
+  }.bind(this));
+
+  var dependenciesJSON = JSON.stringify(dependencies);
+  all += "PRECOMPILED.dependencies = " + dependenciesJSON;
+  console.log("Number of methods compiled: " + methodsCompiled);
+  console.log("Number of methods failed: " + methodsFailed);
+  console.log("Number of methods hard fail: " + methodsFailedHard);
+  var bl = new Blob([all], {type : 'text/plain'});
+  console.log(URL.createObjectURL(bl));
+};

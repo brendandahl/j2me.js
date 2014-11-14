@@ -27,6 +27,9 @@ JVM.prototype.initializeBuiltinClasses = function() {
 
 JVM.prototype.startIsolate0 = function(className, args) {
     var runtime = new Runtime(this);
+    if (typeof PRECOMPILED !== "undefined") {
+      runtime.setupPrecompiledDependencies(PRECOMPILED.dependencies);
+    }
     var ctx = new Context(runtime);
 
     var com_sun_cldc_isolate_Isolate = CLASSES.getClass("com/sun/cldc/isolate/Isolate");
@@ -44,6 +47,7 @@ JVM.prototype.startIsolate0 = function(className, args) {
 
     ctx.frames.push(new Frame(CLASSES.getMethod(com_sun_cldc_isolate_Isolate, "I.start.()V"), [ isolate ], 0));
     ctx.start();
+    return runtime;
 }
 
 JVM.prototype.startIsolate = function(isolate) {
@@ -54,6 +58,9 @@ JVM.prototype.startIsolate = function(isolate) {
     });
 
     var runtime = new Runtime(this);
+    if (typeof PRECOMPILED !== "undefined") {
+      runtime.setupPrecompiledDependencies(PRECOMPILED.dependencies);
+    }
     var ctx = new Context(runtime);
 
     isolate.runtime = runtime;
@@ -83,4 +90,5 @@ JVM.prototype.startIsolate = function(isolate) {
 
     ctx.frames.push(new Frame(entryPoint, [ args ], 0));
     ctx.start();
+    return runtime;
 }

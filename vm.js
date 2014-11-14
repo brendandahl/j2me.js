@@ -142,7 +142,7 @@ VM.execute = function(ctx) {
 
     function resolve(idx, isStatic) {
         try {
-            return ctx.resolve(cp, idx, isStatic);
+            return ctx.runtime.resolve(cp, idx, isStatic);
         } catch (e) {
             if (e instanceof JavaException) {
                 ctx.raiseExceptionAndYield(e.javaClassName, e.message);

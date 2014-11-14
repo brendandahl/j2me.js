@@ -102,3 +102,112 @@ Runtime.prototype.setStatic = function(field, value) {
 Runtime.prototype.getStatic = function(field) {
   return this.staticFields[field.id];
 }
+
+Runtime.prototype.resolve = function(cp, idx, isStatic) {
+  var constant = cp[idx];
+  if (!constant.tag)
+    return constant;
+  switch(constant.tag) {
+    case 3: // TAGS.CONSTANT_Integer
+      constant = constant.integer;
+      break;
+    case 4: // TAGS.CONSTANT_Float
+      constant = constant.float;
+      break;
+    case 8: // TAGS.CONSTANT_String
+      constant = this.newStringConstant(cp[constant.string_index].bytes);
+      break;
+    case 5: // TAGS.CONSTANT_Long
+      constant = Long.fromBits(constant.lowBits, constant.highBits);
+      break;
+    case 6: // TAGS.CONSTANT_Double
+      constant = constant.double;
+      break;
+    case 7: // TAGS.CONSTANT_Class
+      constant = CLASSES.getClass(cp[constant.name_index].bytes);
+      break;
+    case 9: // TAGS.CONSTANT_Fieldref
+      var classInfo = this.resolve(cp, constant.class_index, isStatic);
+      var fieldName = cp[cp[constant.name_and_type_index].name_index].bytes;
+      var signature = cp[cp[constant.name_and_type_index].signature_index].bytes;
+      constant = CLASSES.getField(classInfo, (isStatic ? "S" : "I") + "." + fieldName + "." + signature);
+      if (!constant) {
+        throw new JavaException("java/lang/RuntimeException",
+            classInfo.className + "." + fieldName + "." + signature + " not found");
+      }
+      break;
+    case 10: // TAGS.CONSTANT_Methodref
+    case 11: // TAGS.CONSTANT_InterfaceMethodref
+      var classInfo = this.resolve(cp, constant.class_index, isStatic);
+      var methodName = cp[cp[constant.name_and_type_index].name_index].bytes;
+      var signature = cp[cp[constant.name_and_type_index].signature_index].bytes;
+      constant = CLASSES.getMethod(classInfo, (isStatic ? "S" : "I") + "." + methodName + "." + signature);
+      if (!constant) {
+        throw new JavaException("java/lang/RuntimeException",
+            classInfo.className + "." + methodName + "." + signature + " not found");
+      }
+      break;
+    default:
+      throw new Error("not support constant type");
+  }
+  return constant;
+};
+
+Runtime.prototype.setupPrecompiledDependencies = function(dependencies) {
+  function lazy(obj, key, getter) {
+    Object.defineProperty(obj, key, {
+      get: function(key) {
+        var value = getter();
+        Object.defineProperty(this, key, {
+          value: value,
+          configurable: true,
+          enumerable: true
+        });
+        return value;
+      }.bind(obj, key),
+      configurable: true,
+      enumerable: true
+    });
+  }
+
+  var classes = dependencies.classes;
+  for (var key in classes) {
+    var className = classes[key];
+    lazy(this.classInfos, key, function(className) {
+      return CLASSES.loadClass(className);
+    }.bind(null, className));
+  }
+
+  var methods = dependencies.methods;
+  for (var key in methods) {
+    var method = methods[key];
+    lazy(this.methodInfos, key, function(className, methodKey) {
+      var classInfo = CLASSES.loadClass(className);
+      return CLASSES.getMethod(classInfo, methodKey);
+    }.bind(null, method[0], method[1]));
+  }
+
+  var fields = dependencies.fields;
+  for (var key in fields) {
+    var field = fields[key];
+    lazy(this.fieldInfos, key, function(className, fieldKey) {
+      var classInfo = CLASSES.loadClass(className);
+      return CLASSES.getField(classInfo, fieldKey);
+    }.bind(null, field[0], field[1]));
+  }
+
+  var staticCalls = dependencies.staticCalls;
+  for (var key in staticCalls) {
+    var method = staticCalls[key];
+    Object.defineProperty(this.functions, key, {
+      get: function(key, className, methodKey) {
+        var classInfo = CLASSES.loadClass(className);
+        var methodInfo = CLASSES.getMethod(classInfo, methodKey);
+        return J2ME.buildCompiledCall(this, key, methodInfo);
+      }.bind(this.functions, key, method[0], method[1]),
+      configurable: true,
+      enumerable: true
+    });
+  }
+};
+
