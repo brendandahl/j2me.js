@@ -112,6 +112,7 @@ module J2ME {
     classes: any [];
     constant_pool: ConstantPoolEntry [];
     isArrayClass: boolean;
+    getClassObject: any;
   }
 
   export interface ExceptionHandler {
@@ -525,6 +526,15 @@ module J2ME {
       ctx.frames.push(frame);
       for (var i = 2; i < arguments.length; i++) {
         frame.setLocal(i - 2, arguments[i]);
+      }
+      if (methodInfo.isSynchronized) {
+        if (!frame.lockObject) {
+          frame.lockObject = methodInfo.isStatic
+            ? methodInfo.classInfo.getClassObject(ctx)
+            : frame.getLocal(0);
+        }
+
+        ctx.monitorEnter(frame.lockObject);
       }
       return VM.execute(ctx);
     }
