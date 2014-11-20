@@ -147,6 +147,7 @@ function createAlternateImpl(object, key, fn, usesPromise) {
       }
     }
   };
+  object[key].usesPromise = usesPromise;
 }
 
 Override.create = createAlternateImpl.bind(null, Override);

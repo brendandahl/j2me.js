@@ -11,4 +11,5 @@
 ///<reference path='jvm.ir.ts' />
 ///<reference path='types.ts' />
 ///<reference path='blockMap.ts' />
+///<reference path='analysis.ts' />
 ///<reference path='builder.ts' />

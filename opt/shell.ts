@@ -79,6 +79,7 @@ module J2ME {
   var verboseOption: Options.Option;
   var classpathOption: Options.Option;
   var callGraphOption: Options.Option;
+  var yieldsOption: Options.Option;
   var classFilterOption: Options.Option;
   var debuggerOption: Options.Option;
   var releaseOption: Options.Option;
@@ -90,7 +91,8 @@ module J2ME {
 
     verboseOption = shellOptions.register(new Options.Option("v", "verbose", "boolean", false, "Verbose"));
     classpathOption = shellOptions.register(new Options.Option("cp", "classpath", "string []", [], "Compile ClassPath"));
-    callGraphOption = shellOptions.register(new Options.Option("cg", "callGraph", "string []", [], "Call Grpah Files"));
+    callGraphOption = shellOptions.register(new Options.Option("cg", "callGraph", "string", null, "Call Graph File"));
+    yieldsOption = shellOptions.register(new Options.Option("y", "yields", "string", null, "Yielding Methods File"));
 
 
     classFilterOption = shellOptions.register(new Options.Option("f", "filter", "string", ".*", "Compile Filter"));
@@ -126,32 +128,40 @@ module J2ME {
         }
       });
 
-      callGraphOption.value.filter(function (value, index, array) {
-        if (value.endsWith(".json")) {
-          var calls = JSON.parse(snarf(value));
-          var Y = {};
-          Y["java/io/ByteArrayOutputStream.write.(I)V"] = true;
-          var changed = true;
-          while (changed) {
-            changed = false;
-            for (var k in calls) {
-              if (Y[k]) {
-                continue;
-              }
-              for (var z in Y) {
-                if (calls[k].indexOf(z) >= 0) {
-                  Y[k] = true;
-                  changed = true;
-                  break;
-                }
+      if (callGraphOption.value === null && yieldsOption.value !== null ||
+          callGraphOption.value !== null && yieldsOption.value === null) {
+        writer.writeLn("Call graph and yields must both be specified.");
+        quit();
+      }
+
+      if (callGraphOption.value !== null) {
+        var calls = JSON.parse(snarf(callGraphOption.value));
+        var yields = JSON.parse(snarf(yieldsOption.value));
+        var knownYieldCount = Object.keys(yields).length;
+        var changed = true;
+        var newYieldCount = 0;
+        while (changed) {
+          changed = false;
+          for (var callKey in calls) {
+            if (yields[callKey]) {
+              continue;
+            }
+            for (var yieldKey in yields) {
+              if (calls[callKey].indexOf(yieldKey) >= 0) {
+                newYieldCount++;
+                yields[callKey] = true;
+                changed = true;
+                break;
               }
             }
           }
-          writer.writeLn(JSON.stringify(Y, null, 2));
-        } else {
-          return true;
         }
-      });
+        writer.writeLn(JSON.stringify(yields, null, 2));
+        writer.writeLn("Methods that directly yield: " + knownYieldCount);
+        writer.writeLn("Methods that call yielding methods: " + newYieldCount);
+        writer.writeLn("Total yields: " + Object.keys(yields).length);
+        writer.writeLn("Total methods in call graph: " + Object.keys(calls).length);
+      }
     } catch (x) {
       writer.writeLn(x.message);
       writer.writeLns(x.stack);
