@@ -15,7 +15,7 @@ if (scriptArgs.length !== 1) {
 
 var window = {
   setZeroTimeout: function(callback) {
-    callback();
+    setTimeout(callback, 0);
   },
   addEventListener: function() {
   },
@@ -63,7 +63,8 @@ var urlParams = {
 };
 
 try {
-  load("libs/zipfile.js", "blackBox.js", "build/j2me.js", "classfile/classfile.js",
+  load("libs/windowTimer.js",
+       "libs/zipfile.js", "blackBox.js", "build/j2me.js", "classfile/classfile.js",
        "classfile/reader.js", "classfile/tags.js", "classfile/attributetypes.js",
        "libs/encoding.js", "util.js", "frame.js",
        "classfile/accessflags.js", "instrument.js", "signature.js", "opcodes.js",
@@ -71,6 +72,7 @@ try {
        "string.js", "libs/console.js", "midp/midp.js",
        "libs/long.js", "midp/crypto.js", "libs/forge/md5.js", "libs/forge/util.js", "build/compiled.js");
 
+  var timerLoop = makeWindowTimer(this, function (ms) { sleep(ms / 1000); });
   var dump = print;
   var console = window.console;
 
@@ -88,6 +90,7 @@ try {
 
   start = dateNow();
   var runtime = jvm.startIsolate0(scriptArgs[0], urlParams.args);
+  timerLoop();
 
   print("RUNNING TIME: " + (dateNow() - start));
 
