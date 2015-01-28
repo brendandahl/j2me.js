@@ -88,7 +88,6 @@ public class TestNokiaImageProcessingInMultiThread implements Testlet {
             t2.start();
             t1.join();
             t2.join();
-            System.out.println("Done");
         } catch (InterruptedException ioe) {
             th.fail("Unexpected thread exception");
             ioe.printStackTrace();
