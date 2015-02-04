@@ -10,7 +10,7 @@ import time
 # The test automation scripts to run via casperjs/slimerjs.
 automation_scripts = [
     '/tests/automation.js',
-    '/tests/fs/automation.js',
+    # '/tests/fs/automation.js',
 ]
 
 # The exit code to return.  We set this to 1 if an automation script outputs
