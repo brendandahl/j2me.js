@@ -1269,14 +1269,18 @@ module J2ME {
   }
 
   function findCompiledMethod(klass: Klass, methodInfo: MethodInfo): Function {
+    var fn = jsGlobal[methodInfo.mangledClassAndMethodName];
+    if (fn) {
+      aotMethodCount++;
+      return fn;
+    }
     if (enableCompiledMethodCache) {
       var cachedMethod;
-      if (!jsGlobal[methodInfo.mangledClassAndMethodName] && (cachedMethod = CompiledMethodCache.get(methodInfo.implKey))) {
+      if ((cachedMethod = CompiledMethodCache.get(methodInfo.implKey))) {
         cachedMethodCount ++;
         linkMethod(methodInfo, cachedMethod.source, cachedMethod.referencedClasses);
       }
     }
-
     return jsGlobal[methodInfo.mangledClassAndMethodName];
   }
 
@@ -1481,6 +1485,11 @@ module J2ME {
    * Number of methods that have been loaded from the code cache thus far.
    */
   export var cachedMethodCount = 0;
+
+  /**
+   * Number of methods that have been loaded from ahead of time compiled code thus far.
+   */
+  export var aotMethodCount = 0;
 
   /**
    * Number of ms that have been spent compiled code thus far.
