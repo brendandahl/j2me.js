@@ -19,6 +19,8 @@ module J2ME {
 
   declare var Relooper;
 
+  declare var Override;
+
   export var baselineCounter = null; // new Metrics.Counter(true);
 
   /**
@@ -254,6 +256,47 @@ module J2ME {
       return true;
     }
     return false;
+  }
+
+  /**
+   * If a method is a simple getter then the FieldInfo of the field
+   * it accesses is returned.
+   * @param methodInfo This must be a statically bound method.
+   * @returns {FieldInfo}
+   */
+  function getFastGetterFieldInfo(methodInfo: MethodInfo): FieldInfo {
+    // !!!!!!!!!!!!!! TODO Not all overrides are currently loaded by JSC so we could
+    // be inlining something we shouldn't be. We should kill Overrides!
+    if (methodInfo.implKey in Override) {
+      return null;
+    }
+
+    if (!methodInfo.codeAttribute) {
+      return null;
+    }
+    var code = methodInfo.codeAttribute.code;
+    if (code.length !== 5) {
+      return null;
+    }
+    if (methodInfo.isSynchronized) {
+      return null;
+    }
+    if (methodInfo.consumeArgumentSlots !== 1) {
+      return null;
+    }
+    if (code[0] !== Bytecodes.ALOAD_0) {
+      return null;
+    }
+    if (code[1] !== Bytecodes.GETFIELD) {
+      return null;
+    }
+    if (code[4] < Bytecodes.IRETURN || Bytecodes.ARETURN < code[4]) {
+      return null;
+    }
+    var bytes = new BytecodeStream(code);
+    bytes.setBCI(1);
+    var cpi = bytes.readCPI();
+    return methodInfo.classInfo.constantPool.resolveField(cpi, false);
   }
 
   export enum Precedence {
@@ -844,7 +887,8 @@ module J2ME {
 
     emitInvoke(methodInfo: MethodInfo, opcode: Bytecodes, nextPC: number) {
       var calleeCanYield = YieldReason.Virtual;
-      if (isStaticallyBound(opcode, methodInfo)) {
+      var calleeIsStaticallyBound = isStaticallyBound(opcode, methodInfo);
+      if (calleeIsStaticallyBound) {
         calleeCanYield = canYield(methodInfo);
       }
       if (opcode === Bytecodes.INVOKESTATIC) {
@@ -859,11 +903,17 @@ module J2ME {
       var object = null, call;
       if (opcode !== Bytecodes.INVOKESTATIC) {
         object = this.pop(Kind.Reference);
-        if (opcode === Bytecodes.INVOKESPECIAL) {
-          args.unshift(object);
-          call = methodInfo.mangledClassAndMethodName + ".call(" + args.join(",") + ")";
+        var fastGetterFieldInfo;
+        if (calleeIsStaticallyBound && (fastGetterFieldInfo = getFastGetterFieldInfo(methodInfo))) {
+          this.blockEmitter.writeLn("// Inlining getter: " + methodInfo.implKey);
+          call = object + "." + fastGetterFieldInfo.mangledName;
         } else {
-          call = object + "." + methodInfo.mangledName + "(" + args.join(",") + ")";
+          if (opcode === Bytecodes.INVOKESPECIAL) {
+            args.unshift(object);
+            call = methodInfo.mangledClassAndMethodName + ".call(" + args.join(",") + ")";
+          } else {
+            call = object + "." + methodInfo.mangledName + "(" + args.join(",") + ")";
+          }
         }
       } else {
         call = methodInfo.mangledClassAndMethodName + "(" + args.join(",") + ")";
