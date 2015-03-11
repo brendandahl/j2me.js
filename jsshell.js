@@ -95,11 +95,11 @@ var config = {
 
 try {
   load("libs/relooper.js", "build/j2me.js","libs/zipfile.js", "blackBox.js",
-    "libs/encoding.js", "util.js", "libs/jarstore.js",
-    "override.js", "native.js", "string.js", "tests/override.js",
-    "midp/midp.js", "midp/gestures.js",
-    "libs/long.js", "midp/crypto.js", "libs/forge/md5.js", "libs/forge/util.js",
-    "build/classes.jar.js");
+       "libs/encoding.js", "util.js", "libs/jarstore.js",
+       "override.js", "vm/tags.js", "native.js", "tests/override.js", 
+       "midp/midp.js", "midp/gestures.js",
+       "libs/long.js", "midp/crypto.js", "libs/forge/md5.js", "libs/forge/util.js",
+       "build/classes.jar.js");
 
   // load("build/classes.jar.js");
   // load("build/program.jar.js");
@@ -121,9 +121,7 @@ try {
   var start = dateNow();
   var jvm = new JVM();
 
-  J2ME.writers = J2ME.WriterFlags.JIT;
-
-  print("INITIALIZATION TIME: " + (dateNow() - start));
+  J2ME.writers = J2ME.WriterFlags.None;
 
   start = dateNow();
   var runtime = jvm.startIsolate0(scriptArgs[0], config.args);
@@ -131,8 +129,6 @@ try {
   while (callbacks.length) {
     (callbacks.shift())();
   }
-
-  print("RUNNING TIME: " + (dateNow() - start));
 
   // J2ME.interpreterCounter.traceSorted(new J2ME.IndentingWriter());
 
