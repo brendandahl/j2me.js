@@ -27,7 +27,6 @@
 package java.io;
 
 import com.sun.cldchi.jvm.JVM;
-import org.mozilla.internal.Sys;
 
 /**
  * A <code>ByteArrayInputStream</code> contains
@@ -187,7 +186,7 @@ class ByteArrayInputStream extends InputStream {
         if (len <= 0) {
             return 0;
         }
-        Sys.copyArray(buf, pos, b, off, len);
+        System.arraycopy(buf, pos, b, off, len);
         pos += len;
         return len;
     }

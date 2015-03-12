@@ -27,7 +27,6 @@
 package java.io;
 
 import com.sun.cldchi.jvm.JVM;
-import org.mozilla.internal.Sys;
 
 /**
  * This class implements an output stream in which the data is
@@ -91,7 +90,7 @@ public class ByteArrayOutputStream extends OutputStream {
         int newcount = count + 1;
         if (newcount > buf.length) {
             byte newbuf[] = new byte[Math.max(buf.length << 1, newcount)];
-            Sys.copyArray(buf, 0, newbuf, 0, count);
+            System.arraycopy(buf, 0, newbuf, 0, count);
             buf = newbuf;
         }
         buf[count] = (byte)b;
@@ -116,10 +115,10 @@ public class ByteArrayOutputStream extends OutputStream {
         int newcount = count + len;
         if (newcount > buf.length) {
             byte newbuf[] = new byte[Math.max(buf.length << 1, newcount)];
-            Sys.copyArray(buf, 0, newbuf, 0, count);
+            System.arraycopy(buf, 0, newbuf, 0, count);
             buf = newbuf;
         }
-        Sys.copyArray(b, off, buf, count, len);
+        System.arraycopy(b, off, buf, count, len);
         count = newcount;
     }
 
@@ -148,7 +147,7 @@ public class ByteArrayOutputStream extends OutputStream {
             return buf;
         } else {
             byte newbuf[] = new byte[count];
-            Sys.copyArray(buf, 0, newbuf, 0, count);
+            System.arraycopy(buf, 0, newbuf, 0, count);
             return newbuf;
         }
     }
