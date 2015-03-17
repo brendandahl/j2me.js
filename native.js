@@ -285,9 +285,9 @@ Native["java/lang/Class.getSuperclass.()Ljava/lang/Class;"] = function() {
 
 Native["java/lang/Class.invoke_clinit.()V"] = function() {
     var classInfo = this.runtimeKlass.templateKlass.classInfo;
-    var className = classInfo.className;
+    var className = classInfo.getClassNameSlow();
     var clinit = classInfo.staticInitializer;
-    if (clinit && clinit.classInfo.className === className) {
+    if (clinit && clinit.classInfo.getClassNameSlow() === className) {
         $.ctx.executeFrames([Frame.create(clinit, [], 0)]);
     }
 };
@@ -301,7 +301,7 @@ Native["java/lang/Class.init9.()V"] = function() {
 };
 
 Native["java/lang/Class.getName.()Ljava/lang/String;"] = function() {
-    return J2ME.newString(this.runtimeKlass.templateKlass.classInfo.className.replace(/\//g, "."));
+    return J2ME.newString(this.runtimeKlass.templateKlass.classInfo.getClassNameSlow().replace(/\//g, "."));
 };
 
 Native["java/lang/Class.forName0.(Ljava/lang/String;)V"] = function(name) {
@@ -328,12 +328,25 @@ Native["java/lang/Class.forName1.(Ljava/lang/String;)Ljava/lang/Class;"] = funct
 };
 
 Native["java/lang/Class.newInstance0.()Ljava/lang/Object;"] = function() {
+  if (this.runtimeKlass.templateKlass.classInfo.isInterface ||
+      this.runtimeKlass.templateKlass.classInfo.isAbstract) {
+    throw $.newInstantiationException("Can't instantiate interfaces or abstract classes");
+  }
+
+  if (this.runtimeKlass.templateKlass.classInfo instanceof J2ME.ArrayClassInfo) {
+    throw $.newInstantiationException("Can't instantiate array classes");
+  }
+
   return new this.runtimeKlass.templateKlass;
 };
 
 Native["java/lang/Class.newInstance1.(Ljava/lang/Object;)V"] = function(o) {
   // The following can trigger an unwind.
-  o.klass.classInfo.getMethodByName("<init>", "()V", false).fn.call(o);
+  var methodInfo = o.klass.classInfo.getLocalMethodByNameString("<init>", "()V", false);
+  if (!methodInfo) {
+    throw $.newInstantiationException("Can't instantiate classes without a nullary constructor");
+  }
+  J2ME.getLinkedMethod(methodInfo).call(o);
 };
 
 Native["java/lang/Class.isInterface.()Z"] = function() {
@@ -401,7 +414,7 @@ Native["java/lang/Throwable.fillInStackTrace.()V"] = function() {
         if (!methodName)
             return;
         var classInfo = methodInfo.classInfo;
-        var className = classInfo.className;
+        var className = classInfo.getClassNameSlow();
         this.stackTrace.unshift({ className: className, methodName: methodName, methodSignature: methodInfo.signature, offset: frame.bci });
     }.bind(this));
 };
@@ -412,16 +425,19 @@ Native["java/lang/Throwable.obtainBackTrace.()Ljava/lang/Object;"] = function() 
         var depth = this.stackTrace.length;
         var classNames = J2ME.newObjectArray(depth);
         var methodNames = J2ME.newObjectArray(depth);
+        var methodSignatures = J2ME.newObjectArray(depth);
         var offsets = J2ME.newIntArray(depth);
         this.stackTrace.forEach(function(e, n) {
-            classNames[n] = J2ME.newString(e.className);
+            classNames[n] = J2ME.newString(e.getClassNameSlow());
             methodNames[n] = J2ME.newString(e.methodName);
+            methodSignatures[n] = J2ME.newString(e.methodSignature);
             offsets[n] = e.offset;
         });
         result = J2ME.newObjectArray(3);
         result[0] = classNames;
         result[1] = methodNames;
-        result[2] = offsets;
+        result[2] = methodSignatures;
+        result[3] = offsets;
     }
     return result;
 };
@@ -503,7 +519,7 @@ Native["java/lang/Thread.start0.()V"] = function() {
     newCtx.thread = this;
 
     var classInfo = CLASSES.getClass("org/mozilla/internal/Sys");
-    var run = classInfo.getMethodByName("runThread", "(Ljava/lang/Thread;)V", true);
+    var run = classInfo.getMethodByNameString("runThread", "(Ljava/lang/Thread;)V", true);
     newCtx.start([new Frame(run, [ this ], 0)]);
 }
 
