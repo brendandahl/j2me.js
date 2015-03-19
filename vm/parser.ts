@@ -47,6 +47,18 @@ module J2ME {
     export var J = new Uint8Array([UTF8Chars.J]);
   }
 
+  export function strcmpoff(a: Uint8Array, aOffset: number, aCount: number, b: Uint8Array, bOffset: number, bCount: number): boolean {
+    if (aCount === bCount) {
+      while (aCount-- !== 0) {
+        if (a[aOffset++] !== b[bOffset++]) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
   export function strcmp(a: Uint8Array, b: Uint8Array): boolean {
     if (a === b) {
       return true;
@@ -143,6 +155,84 @@ module J2ME {
     ];
 
     private static internedMap = new Uint8Hashtable(64);
+
+    static UTF8toUTF16(utf8: Uint8Array): Uint16Array{
+      // This conversion is mainly used for symbols within a class file,
+      // in which the large majority of strings are all ascii.
+      var ascii = true;
+      var utf8Length = utf8.length;
+      var utf16 = new Uint16Array(utf8Length);
+      for (var i = 0; i < utf8Length; i++) {
+        var ch1 = utf8[i];
+        if (ch1 === 0) {
+          release || Debug.error("Bad utf16 value.");
+        }
+        if (ch1 >= 128) {
+          ascii = false;
+          break;
+        }
+        utf16[i] = ch1;
+      }
+      if (ascii) {
+        return utf16;
+      }
+      var index = 0;
+      var a = [];
+      while (index < utf8Length) {
+        var ch1 = utf8[index++];
+        if (ch1 < 128) {
+          a.push(ch1);
+          continue;
+        }
+
+        switch (ch1 >> 4) {
+          case 0x8:
+          case 0x9:
+          case 0xA:
+          case 0xB:
+          case 0xF:
+            release || Debug.error("Bad utf16 value.");
+            break;
+          case 0xC:
+          case 0xD:
+            /* 110xxxxx  10xxxxxx */
+            if (index < utf8Length) {
+              var ch2 = utf8[index];
+              index++;
+              if ((ch2 & 0xC0) == 0x80) {
+                var high_five = (ch1 & 0x1F);
+                var low_six = (ch2 & 0x3F);
+                a.push(((high_five << 6) + low_six));
+              }
+            }
+            break;
+          case 0xE:
+            /* 1110xxxx 10xxxxxx 10xxxxxx */
+            if (index < utf8Length) {
+              var ch2 = utf8[index];
+              index++;
+              if ((ch2 & 0xC0) == 0x80 && index < utf8Length) {
+                var ch3 = utf8[index];
+                if ((ch3 & 0xC0) == 0x80) {
+                  index++;
+                  var high_four = (ch1 & 0x0f);
+                  var mid_six = (ch2 & 0x3f);
+                  var low_six = (ch3 & 0x3f);
+                  a.push((((high_four << 6) + mid_six) << 6) + low_six);
+                } else {
+                  var high_four = (ch1 & 0x0f);
+                  var low_six = (ch2 & 0x3f);
+                  a.push((high_four << 6) + low_six);
+                }
+              }
+            }
+            break;
+          default:
+            break;
+        }
+      }
+      return new Uint16Array(a);
+    }
 
     constructor (
       public buffer: Uint8Array,
@@ -516,7 +606,7 @@ module J2ME {
               r = this.resolved[i] = IntegerUtilities.int32ToFloat(s.readS4());
               break;
             case TAGS.CONSTANT_String:
-              r = this.resolved[i] = $.newStringConstant(this.resolveUtf8String(s.readU2()));
+              r = this.resolved[i] = $.newStringConstant(ByteStream.UTF8toUTF16(this.resolveUtf8(s.readU2())));
               break;
             case TAGS.CONSTANT_Long:
               var high = s.readS4();

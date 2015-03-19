@@ -226,6 +226,13 @@ module J2ME {
     'J': Int64Array
   };
 
+  export function javaStringEquals(a: java.lang.String, b: java.lang.String) {
+    if (a === b) {
+      return true;
+    }
+    return strcmpoff(a.value, a.offset, a.count, b.value, b.offset, b.count);
+  }
+
   export function getArrayConstructor(type: string): Function {
     return arrays[type];
   }
@@ -269,7 +276,7 @@ module J2ME {
 
   export var phase = ExecutionPhase.Runtime;
 
-  export var internedStrings: Map<string, java.lang.String> = new Map<string, java.lang.String>();
+  export var internedStrings: java.lang.String[] = [];
 
   declare var util;
 
@@ -518,12 +525,18 @@ module J2ME {
       }
     }
 
-    newStringConstant(jsString: string): java.lang.String {
-      if (internedStrings.has(jsString)) {
-        return internedStrings.get(jsString);
+    newStringConstant(utf16Array: Uint16Array): java.lang.String {
+      for (var i = 0; i < internedStrings.length; i++) {
+        var string = internedStrings[i];
+        if (strcmpoff(utf16Array, 0, utf16Array.length, string.value, string.offset, string.count)) {
+          return string;
+        }
       }
-      var javaString = J2ME.newString(jsString);
-      internedStrings.set(jsString, javaString);
+      var javaString = <java.lang.String>newObject(Klasses.java.lang.String);
+      javaString.value = utf16Array;
+      javaString.offset = 0;
+      javaString.count = utf16Array.length;
+      internedStrings.push(javaString);
       return javaString;
     }
 
