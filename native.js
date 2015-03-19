@@ -451,6 +451,9 @@ Native["java/lang/Runtime.totalMemory.()J"] = function() {
 };
 
 Native["java/lang/Runtime.gc.()V"] = function() {
+    if (typeof gc !== "undefined") {
+        gc(); // gc exists in the spidermonkey shell.
+    }
 };
 
 Native["java/lang/Math.floor.(D)D"] = function(val) {
@@ -966,5 +969,18 @@ function addUnimplementedNative(signature, returnValue) {
 Native["org/mozilla/internal/Sys.eval.(Ljava/lang/String;)V"] = function(src) {
     if (!release) {
         eval(J2ME.fromJavaString(src));
+    }
+};
+
+Native["java/lang/String.intern.()Ljava/lang/String;"] = function() {
+    var string = util.fromJavaString(this);
+
+    var internedString = J2ME.internedStrings.get(string);
+
+    if (internedString) {
+        return internedString;
+    } else {
+        J2ME.internedStrings.set(string, this);
+        return this;
     }
 };
