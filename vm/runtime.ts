@@ -49,7 +49,7 @@ module J2ME {
   /**
    * Turns on just-in-time compilation of methods.
    */
-  export var enableRuntimeCompilation = false;
+  export var enableRuntimeCompilation = true;
 
   /**
    * Turns on onStackReplacement
