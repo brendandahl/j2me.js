@@ -956,12 +956,10 @@ Native["org/mozilla/internal/Sys.eval.(Ljava/lang/String;)V"] = function(src) {
 
 Native["java/lang/String.intern.()Ljava/lang/String;"] = function() {
   var internedStrings = J2ME.internedStrings;
-  for (var i = 0; i < internedStrings.length; i++) {
-    var string = internedStrings[i];
-    if (J2ME.javaStringEquals(this, string)) {
-      return string;
-    }
+  var internedString = internedStrings.getByRange(this.value, this.offset, this.count);
+  if (internedString !== null) {
+    return internedString;
   }
-  internedStrings.push(this);
+  internedStrings.put(this.value.subarray(this.offset, this.offset + this.count), this);
   return this;
 };

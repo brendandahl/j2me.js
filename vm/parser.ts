@@ -47,18 +47,6 @@ module J2ME {
     export var J = new Uint8Array([UTF8Chars.J]);
   }
 
-  export function strcmpoff(a: Uint8Array, aOffset: number, aCount: number, b: Uint8Array, bOffset: number, bCount: number): boolean {
-    if (aCount === bCount) {
-      while (aCount-- !== 0) {
-        if (a[aOffset++] !== b[bOffset++]) {
-          return false;
-        }
-      }
-      return true;
-    }
-    return false;
-  }
-
   export function strcmp(a: Uint8Array, b: Uint8Array): boolean {
     if (a === b) {
       return true;
@@ -154,7 +142,7 @@ module J2ME {
       new Uint8Array([40, 41, 74]), // ()J
     ];
 
-    private static internedMap = new Uint8Hashtable(64);
+    private static internedMap = new TypedArrayHashtable(64);
 
     static UTF8toUTF16(utf8: Uint8Array): Uint16Array{
       // This conversion is mainly used for symbols within a class file,

@@ -226,13 +226,6 @@ module J2ME {
     'J': Int64Array
   };
 
-  export function javaStringEquals(a: java.lang.String, b: java.lang.String) {
-    if (a === b) {
-      return true;
-    }
-    return strcmpoff(a.value, a.offset, a.count, b.value, b.offset, b.count);
-  }
-
   export function getArrayConstructor(type: string): Function {
     return arrays[type];
   }
@@ -276,7 +269,7 @@ module J2ME {
 
   export var phase = ExecutionPhase.Runtime;
 
-  export var internedStrings: java.lang.String[] = [];
+  export var internedStrings: TypedArrayHashtable = new TypedArrayHashtable(767);
 
   declare var util;
 
@@ -526,17 +519,15 @@ module J2ME {
     }
 
     newStringConstant(utf16Array: Uint16Array): java.lang.String {
-      for (var i = 0; i < internedStrings.length; i++) {
-        var string = internedStrings[i];
-        if (strcmpoff(utf16Array, 0, utf16Array.length, string.value, string.offset, string.count)) {
-          return string;
-        }
+      var javaString = internedStrings.get(utf16Array);
+      if (javaString !== null) {
+        return javaString;
       }
-      var javaString = <java.lang.String>newObject(Klasses.java.lang.String);
+      javaString = <java.lang.String>newObject(Klasses.java.lang.String);
       javaString.value = utf16Array;
       javaString.offset = 0;
       javaString.count = utf16Array.length;
-      internedStrings.push(javaString);
+      internedStrings.put(utf16Array, javaString);
       return javaString;
     }
 
@@ -1255,7 +1246,7 @@ module J2ME {
    */
   function getOverrideMap() {
     if (!overrideMap) {
-      overrideMap = new Uint8Hashtable(10);
+      overrideMap = new TypedArrayHashtable(10);
       for (var k in Override) {
         var className = k.substring(0, k.indexOf("."));
         overrideMap.put(cacheUTF8(className), true);
