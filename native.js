@@ -25,6 +25,7 @@ function asyncImpl(returnKind, promise) {
 }
 
 var Native = {};
+var Override = {};
 
 Native["java/lang/System.arraycopy.(Ljava/lang/Object;ILjava/lang/Object;II)V"] = function(src, srcOffset, dst, dstOffset, length) {
     if (!src || !dst)
