@@ -36,6 +36,8 @@ module J2ME {
     export var Code = new Uint8Array([67, 111, 100, 101]);
     export var ConstantValue = new Uint8Array([67, 111, 110, 115, 116, 97, 110, 116, 86, 97, 108, 117, 101]);
     export var Init = new Uint8Array([60, 105, 110, 105, 116, 62]);
+    export var Clinit = new Uint8Array([60, 99, 108, 105, 110, 105, 116, 62]);
+    export var VoidSignature = new Uint8Array([40, 41, 86]);
 
     export var Z = new Uint8Array([UTF8Chars.Z]);
     export var C = new Uint8Array([UTF8Chars.C]);
@@ -1357,7 +1359,7 @@ module J2ME {
     }
 
     get staticInitializer(): MethodInfo {
-      return this.getMethodByNameString("<clinit>", "()V");
+      return this.getLocalMethodByName(UTF8.Clinit, UTF8.VoidSignature);
     }
 
     /**

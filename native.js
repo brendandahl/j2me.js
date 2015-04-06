@@ -306,9 +306,8 @@ Native["java/lang/Class.getSuperclass.()Ljava/lang/Class;"] = function() {
 
 Native["java/lang/Class.invoke_clinit.()V"] = function() {
     var classInfo = this.runtimeKlass.templateKlass.classInfo;
-    var className = classInfo.getClassNameSlow();
     var clinit = classInfo.staticInitializer;
-    if (clinit && clinit.classInfo.getClassNameSlow() === className) {
+    if (clinit) {
         $.ctx.executeFrame(Frame.create(clinit, []));
     }
 };
