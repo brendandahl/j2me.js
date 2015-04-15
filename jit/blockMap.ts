@@ -293,10 +293,14 @@ module J2ME.Bytecode {
           case Bytecodes.INVOKESPECIAL:
           case Bytecodes.INVOKESTATIC:
           case Bytecodes.INVOKEINTERFACE:
+          case Bytecodes.RESOLVED_INVOKEVIRTUAL:
             this.invokeCount ++;
-            if (this.canTrapAt(opcode, bci)) {
-              this.canTrap.set(bci);
-            }
+            current = null;
+            var target = bci + Bytecode.lengthAt(code, bci);
+            var b1 = this.makeBlock(target);
+            this.setSuccessors(bci, [b1]);
+            this.canTrap.set(bci);
+
             break;
           default: {
             if (this.canTrapAt(opcode, bci)) {

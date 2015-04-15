@@ -159,6 +159,7 @@ module J2ME {
           }
           var compiledMethodName = mangledClassAndMethodName;
           writer.enter("function " + compiledMethodName + "(" + compiledMethod.args.join(",") + ") {");
+          writer.writeLns(compiledMethod.prologue);
           writer.writeLns(compiledMethod.body);
           writer.leave("}");
           if (method.name === "<clinit>") {
@@ -189,6 +190,7 @@ module J2ME {
 
   export class CompiledMethodInfo {
     constructor(public args: string [],
+                public prologue: string,
                 public body: string,
                 public referencedClasses: ClassInfo [],
                 public onStackReplacementEntryPoints: number [] = null) {
@@ -315,7 +317,7 @@ module J2ME {
     stdoutWriter.writeLn(code);
 
     stdoutWriter.enter("/*");
-    baselineCounter && baselineCounter.traceSorted(stdoutWriter);
+    baselineCounter && baselineCounter.traceSorted(stderrWriter);
     yieldCounter && yieldCounter.traceSorted(stdoutWriter);
     yieldGraph && traceYieldGraph(stdoutWriter);
     stdoutWriter.enter("*/");

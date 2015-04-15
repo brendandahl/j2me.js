@@ -28,6 +28,12 @@ module J2ME {
    */
   var preemptionSampleMask = 0xFF;
 
+  var maximumInlineRatio = .9;
+  var maximumDesiredSize = 8000;
+  var maximumInlineSize = 35;
+  var maximumTrivialSize = 6;
+  var maximumInlineLevel = 9;
+
   /**
    * Expressions to inline for commonly invoked methods.
    */
@@ -120,6 +126,44 @@ module J2ME {
     }
     writer && writer.writeLn("Compile: " + methodInfo.implKey);
     return new BaselineCompiler(methodInfo, target).compile();
+  }
+
+  export class ScopeData {
+    public root: ScopeData;
+    public parent: ScopeData;
+    public level: number;
+    public maxInlineSize: number;
+    public compiler: BaselineCompiler;
+    public initializedClasses: any;
+    public bytecodeSize: number;
+    constructor(compiler: BaselineCompiler, parent?: ScopeData) {
+      this.compiler = compiler;
+      this.parent = parent;
+      var level;
+      var maxInlineSize;
+      if (!parent) {
+        level = 0;
+        maxInlineSize = maximumInlineSize;
+        this.initializedClasses = Object.create({});
+        this.root = this;
+        this.bytecodeSize = compiler.methodInfo.codeAttribute.code.length;
+      } else {
+        this.root = parent.root;
+        maxInlineSize = maximumInlineRatio * parent.maxInlineSize;
+        if (maxInlineSize < maximumTrivialSize) {
+          maxInlineSize = maximumTrivialSize;
+        }
+        level = parent.level + 1;
+        this.initializedClasses = Object.create(parent.compiler.initializedClasses);
+      }
+      this.initializedClasses[compiler.methodInfo.classInfo.getClassNameSlow()] = true;
+      this.level = level;
+      this.maxInlineSize = maxInlineSize;
+    }
+
+    isInline() {
+      return this.level !== 0;
+    }
   }
 
   class Emitter {
@@ -311,15 +355,17 @@ module J2ME {
     pc: number;
 
     private target: CompilationTarget;
+    private prologueEmitter: Emitter;
     private bodyEmitter: Emitter;
     private blockEmitter: Emitter;
     private blockMap: BlockMap;
-    private methodInfo: MethodInfo;
+    private blockHadInlining: boolean;
+    public methodInfo: MethodInfo;
     private parameters: string [];
     private hasHandlers: boolean;
     private hasMonitorEnter: boolean;
     private blockStackHeightMap: number [];
-    private initializedClasses: any;
+    public initializedClasses: any;
     private referencedClasses: ClassInfo [];
     private local: string [];
     private stack: string [];
@@ -330,6 +376,9 @@ module J2ME {
     private hasOSREntryPoint = false;
     private entryBlock: number;
     private isPrivileged: boolean;
+    private scopeData: ScopeData;
+    private continuationBlock: Block;
+    private returnAssignment: string;
 
     static localNames = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 
@@ -343,7 +392,7 @@ module J2ME {
      */
     private hasUnwindThrow: boolean;
 
-    constructor(methodInfo: MethodInfo, target: CompilationTarget) {
+    constructor(methodInfo: MethodInfo, target: CompilationTarget, parent?: ScopeData) {
       this.methodInfo = methodInfo;
       this.local = [];
       this.variables = {};
@@ -353,23 +402,30 @@ module J2ME {
       this.blockStack = [];
       this.blockStackPrecedence = [];
       this.parameters = [];
-      this.referencedClasses = [];
+      this.referencedClasses = parent ? parent.compiler.referencedClasses : [];
       this.initializedClasses = null;
       this.hasHandlers = methodInfo.exception_table_length > 0;
       this.hasMonitorEnter = false;
       this.blockStackHeightMap = [0];
+      this.prologueEmitter = new Emitter(!release);
       this.bodyEmitter = new Emitter(!release);
       this.blockEmitter = new Emitter(!release);
       this.target = target;
       this.hasUnwindThrow = false;
       this.isPrivileged = isPrivileged(this.methodInfo);
+      this.scopeData = new ScopeData(this, parent);
     }
 
-    compile(): CompiledMethodInfo {
+    compile(continuationBlock?: Block, returnAssignment?: string, args?: string[]): CompiledMethodInfo {
+      this.returnAssignment = returnAssignment;
+      this.continuationBlock = continuationBlock;
+
       this.blockMap = new BlockMap(this.methodInfo);
       this.blockMap.build();
-      Relooper.cleanup();
-      Relooper.init();
+      if (!this.scopeData.isInline()) {
+        Relooper.cleanup();
+        Relooper.init();
+      }
 
       var blocks = this.blockMap.blocks;
       // Create relooper blocks ahead of time so we can add branches in one pass over the bytecode.
@@ -377,7 +433,7 @@ module J2ME {
         blocks[i].relooperBlockID = Relooper.addBlock("// Block: " + blocks[i].blockID);
       }
       this.entryBlock = blocks[0].relooperBlockID;
-      this.emitPrologue();
+      this.emitPrologue(args);
       this.emitBody();
 
       var variables = [];
@@ -389,16 +445,18 @@ module J2ME {
         }
       }
       if (variables.length > 0) {
-        this.bodyEmitter.prependLn("var " + variables.join(",") + ";");
+        this.prologueEmitter.prependLn("var " + variables.join(",") + ";");
       }
       if (this.hasMonitorEnter) {
-        this.bodyEmitter.prependLn("var th=$.ctx.thread;");
+        this.prologueEmitter.prependLn("var th=$.ctx.thread;");
       }
-      return new CompiledMethodInfo(this.parameters, this.bodyEmitter.toString(), this.referencedClasses, this.hasOSREntryPoint ? this.blockMap.getOSREntryPoints() : []);
+      return new CompiledMethodInfo(this.parameters, this.prologueEmitter.toString(), this.bodyEmitter.toString(), this.referencedClasses, this.hasOSREntryPoint ? this.blockMap.getOSREntryPoints() : []);
     }
 
-    needsVariable(name: string, value?: string) {
-      this.variables[name] = value;
+    needsVariable(name: string, value?: string): string {
+      var variable = this.variable(name);
+      this.variables[variable] = value;
+      return variable;
     }
 
     setSuccessorsBlockStackHeight(block: Block, sp: number) {
@@ -418,11 +476,12 @@ module J2ME {
       if (classInfo !== this.methodInfo.classInfo) {
         return classConstant(classInfo);
       }
-      this.needsVariable("k0", classConstant(classInfo));
-      return "k0";
+      var variable = this.needsVariable("k0", classConstant(classInfo));
+      return variable;
     }
 
     emitBody() {
+      this.resetOptimizationState();
       var blockMap = this.blockMap;
       writer && blockMap.trace(writer);
       var stream = new BytecodeStream(this.methodInfo.codeAttribute.code);
@@ -457,7 +516,9 @@ module J2ME {
       needsWhile && this.bodyEmitter.enter("while(1){");
       needsTry && this.bodyEmitter.enter("try{");
       this.bodyEmitter.writeLn("var label=0;");
-      this.bodyEmitter.writeLns(Relooper.render(this.entryBlock));
+      if (!this.scopeData.isInline()) {
+        this.bodyEmitter.writeLns(Relooper.render(this.entryBlock));
+      }
 
       emitCompilerAssertions && this.bodyEmitter.writeLn("J2ME.Debug.assert(false, 'Invalid PC: ' + pc)");
 
@@ -506,18 +567,48 @@ module J2ME {
      * Resets block level optimization state.
      */
     resetOptimizationState() {
-      this.initializedClasses = Object.create(null);
+      this.initializedClasses = Object.create(this.scopeData.initializedClasses);
+    }
+
+    isInlineCandidate(methodInfo: MethodInfo, block: Block) {
+      // Method calls in try/catch/synchronized blocks can have multiple successors. For now
+      // these can't be inlined.
+      if (block.successors.length !== 1) {
+        return false;
+      }
+      if (this.scopeData.level >= maximumInlineLevel) {
+        return false;
+      }
+      if (this.scopeData.root.bytecodeSize + this.methodInfo.codeAttribute.code.length > maximumDesiredSize) {
+        return false;
+      }
+      if (!methodInfo.codeAttribute) {
+        return false;
+      }
+      if (methodInfo.codeAttribute.code.length > this.scopeData.maxInlineSize) {
+        return false;
+      }
+      if (methodInfo.isSynchronized) {
+        return false;
+      }
+      if (methodInfo.exception_table_length) {
+        return false;
+      }
+      if (canYield(methodInfo)) {
+        return false;
+      }
+      return true;
     }
 
     emitBlockBody(stream: BytecodeStream, block: Block) {
-      this.resetOptimizationState();
+      this.blockHadInlining = false;
       this.sp = this.blockStackHeightMap[block.startBci];
       this.blockStack = this.stack.slice(0, this.sp);
       this.blockStackPrecedence = [];
       for (var i = 0; i < this.sp; i++) {
         this.blockStackPrecedence.push(Precedence.Primary);
       }
-      emitDebugInfoComments && this.blockEmitter.writeLn("// " + this.blockMap.blockToString(block));
+      emitDebugInfoComments && this.blockEmitter.writeLn("// " + (this.scopeData.isInline() ? "inlined block: " + this.methodInfo.implKey + " " : "") + this.blockMap.blockToString(block));
       writer && writer.writeLn("emitBlock: " + block.startBci + " " + this.sp + " " + block.isExceptionEntry);
       release || assert(this.sp !== undefined, "Bad stack height");
       stream.setBCI(block.startBci);
@@ -529,19 +620,26 @@ module J2ME {
         this.emitBytecode(stream, block);
         stream.next();
       }
+      var resetOptimizationState = true;
       if (this.sp >= 0) {
         this.flushBlockStack();
         this.setSuccessorsBlockStackHeight(block, this.sp);
         if (!Bytecode.isBlockEnd(lastBC)) { // Fallthrough.
-          Relooper.addBranch(block.relooperBlockID, this.getBlock(stream.currentBCI).relooperBlockID);
+          resetOptimizationState = false;
+          if (!this.blockHadInlining) {
+            Relooper.addBranch(block.relooperBlockID, this.getBlock(stream.currentBCI).relooperBlockID);
+          }
         }
       } else {
         // TODO: ...
       }
       Relooper.setBlockCode(block.relooperBlockID, this.blockEmitter.toString());
+      if (resetOptimizationState) {
+        this.resetOptimizationState();
+      }
     }
 
-    private emitPrologue() {
+    private emitPrologue(args: string[]) {
       var local = this.local;
       var parameterLocalIndex = this.methodInfo.isStatic ? 0 : 1;
 
@@ -554,35 +652,63 @@ module J2ME {
         parameterLocalIndex += isTwoSlot(kind) ? 2 : 1;
       }
 
+      if (emitCallMethodCounter) {
+        this.prologueEmitter.writeLn("J2ME.baselineMethodCounter.count(\"" + this.methodInfo.implKey + "\");");
+      }
+
       var maxLocals = this.methodInfo.codeAttribute.max_locals;
       for (var i = 0; i < maxLocals; i++) {
         local.push(this.getLocalName(i));
       }
       if (local.length) {
-        this.bodyEmitter.writeLn("var " + local.join(",") + ";");
+        this.prologueEmitter.writeLn("var " + local.join(",") + ";");
+      }
+      if (args) {
+        assert(args.length === (this.methodInfo.isStatic ? signatureKinds.length - 1 : signatureKinds.length) , "Expected number of arg values does not match.");
+        var localIndex = 0;
+        var signatureIndex = 1; // Skip return type;
+        for (var i = 0; i < args.length; i++) {
+          var kind: Kind;
+          if (!this.methodInfo.isStatic && i === 0) { // First argument is the `this` reference.
+            kind = Kind.Reference;
+          } else {
+            kind = signatureKinds[signatureIndex++];
+          }
+          this.prologueEmitter.writeLn(local[localIndex] + "=" + args[i]);
+          localIndex++;
+          if (isTwoSlot(kind)) {
+            localIndex++;
+          }
+        }
       }
       if (!this.methodInfo.isStatic) {
-        this.bodyEmitter.writeLn("var ins="+ this.getLocal(0) + "=this;");
+        var thisInit;
+        if (this.scopeData.isInline()) {
+          thisInit = this.getLocal(0);
+        } else {
+          thisInit = this.getLocal(0) + "=this";
+        }
+        this.prologueEmitter.writeLn("var " + this.variable("ins") + "=" + thisInit + ";");
       }
       var stack = this.stack;
       for (var i = 0; i < this.methodInfo.codeAttribute.max_stack; i++) {
         stack.push(this.getStackName(i));
       }
       if (stack.length) {
-        this.bodyEmitter.writeLn("var " + stack.join(",") + ";");
-      }
-      this.bodyEmitter.writeLn("var pc=0;");
-      if (this.hasHandlers) {
-        this.bodyEmitter.writeLn("var ex;");
+        this.prologueEmitter.writeLn("var " + stack.join(",") + ";");
       }
 
-      if (emitCallMethodCounter) {
-        this.bodyEmitter.writeLn("J2ME.baselineMethodCounter.count(\"" + this.methodInfo.implKey + "\");");
-      }
+      if (!this.scopeData.isInline()) {
+        this.prologueEmitter.writeLn("var pc=0;");
 
-      this.lockObject = this.methodInfo.isSynchronized ?
-        this.methodInfo.isStatic ? this.runtimeClassObject(this.methodInfo.classInfo) : "ins"
-        : "null";
+        if (this.hasHandlers) {
+          this.prologueEmitter.writeLn("var ex;");
+        }
+
+        this.lockObject = this.methodInfo.isSynchronized ?
+          this.methodInfo.isStatic ? this.runtimeClassObject(this.methodInfo.classInfo) : "ins"
+          : "null";
+      }
 
       this.emitEntryPoints();
     }
@@ -606,30 +732,30 @@ module J2ME {
 
       if (needsOSREntryPoint) {
         // Are we doing an OSR?
-        this.bodyEmitter.enter("if(O){");
-        this.bodyEmitter.writeLn("var _=O.local;");
+        this.prologueEmitter.enter("if(O){");
+        this.prologueEmitter.writeLn("var _=O.local;");
 
         // Restore locals.
         var restoreLocals = [];
         for (var i = 0; i < this.methodInfo.codeAttribute.max_locals; i++) {
           restoreLocals.push(this.getLocal(i) + "=_[" + i + "]");
         }
-        this.bodyEmitter.writeLn(restoreLocals.join(",") + ";");
+        this.prologueEmitter.writeLn(restoreLocals.join(",") + ";");
         this.needsVariable("re");
         if (!this.methodInfo.isStatic) {
-          this.bodyEmitter.writeLn("ins=O.lockObject;");
+          this.prologueEmitter.writeLn("ins=O.lockObject;");
         }
-        this.bodyEmitter.writeLn("pc=O.pc;");
-        this.bodyEmitter.writeLn("O.free();O=null;");
+        this.prologueEmitter.writeLn("pc=O.pc;");
+        this.prologueEmitter.writeLn("O.free();O=null;");
         if (this.methodInfo.isSynchronized) {
-          this.bodyEmitter.leaveAndEnter("}else{");
-          this.emitMonitorEnter(this.bodyEmitter, 0, this.lockObject);
+          this.prologueEmitter.leaveAndEnter("}else{");
+          this.emitMonitorEnter(this.prologueEmitter, 0, this.lockObject);
         }
-        this.bodyEmitter.leave("}");
+        this.prologueEmitter.leave("}");
         this.hasOSREntryPoint = true;
       } else {
         if (this.methodInfo.isSynchronized) {
-          this.emitMonitorEnter(this.bodyEmitter, 0, this.lockObject);
+          this.emitMonitorEnter(this.prologueEmitter, 0, this.lockObject);
         }
       }
 
@@ -637,7 +763,7 @@ module J2ME {
       // and state will be stored. We can only do this if the
       // method has the necessary unwinding code.
       if (canYield(this.methodInfo)) {
-        this.emitPreemptionCheck(this.bodyEmitter, "pc");
+        this.emitPreemptionCheck(this.prologueEmitter, "pc");
       }
 
       if (needsEntryDispatch) {
@@ -662,29 +788,37 @@ module J2ME {
       }
     }
 
+    addReferencedClass(classInfo: ClassInfo) {
+      ArrayUtilities.pushUnique(this.referencedClasses, classInfo);
+    }
+
     lookupClass(cpi: number): ClassInfo {
       var classInfo = this.methodInfo.classInfo.constantPool.resolveClass(cpi);
-      ArrayUtilities.pushUnique(this.referencedClasses, classInfo);
+      this.addReferencedClass(classInfo);
       return classInfo;
     }
 
     lookupMethod(cpi: number, opcode: Bytecodes, isStatic: boolean): MethodInfo {
       var methodInfo = this.methodInfo.classInfo.constantPool.resolveMethod(cpi, isStatic);
-      ArrayUtilities.pushUnique(this.referencedClasses, methodInfo.classInfo);
+      this.addReferencedClass(methodInfo.classInfo);
       return methodInfo;
     }
 
     lookupField(cpi: number, opcode: Bytecodes, isStatic: boolean): FieldInfo {
       var fieldInfo = this.methodInfo.classInfo.constantPool.resolveField(cpi, isStatic);
-      ArrayUtilities.pushUnique(this.referencedClasses, fieldInfo.classInfo);
+      this.addReferencedClass(fieldInfo.classInfo);
       return fieldInfo;
+    }
+
+    variable(v: string): string {
+      return v + (!this.scopeData.isInline() ? "" : "_" + this.scopeData.level);
     }
 
     getStackName(i: number): string {
       if (i >= BaselineCompiler.stackNames.length) {
-        return "s" + (i - BaselineCompiler.stackNames.length);
+        return this.variable("s" + (i - BaselineCompiler.stackNames.length));
       }
-      return BaselineCompiler.stackNames[i];
+      return this.variable(BaselineCompiler.stackNames[i]);
     }
 
     getStack(i: number, contextPrecedence: Precedence): string {
@@ -697,9 +831,9 @@ module J2ME {
 
     getLocalName(i: number): string {
       if (i >= BaselineCompiler.localNames.length) {
-        return "l" + (i - BaselineCompiler.localNames.length);
+        return this.variable("l" + (i - BaselineCompiler.localNames.length));
       }
-      return BaselineCompiler.localNames[i];
+      return this.variable(BaselineCompiler.localNames[i]);
     }
 
     getLocal(i: number): string {
@@ -781,7 +915,18 @@ module J2ME {
       }
     }
 
-    emitReturn(kind: Kind) {
+    emitInlineReturn(kind: Kind, block: Block) {
+      if (kind !== Kind.Void) {
+        this.blockEmitter.writeLn(this.returnAssignment + "=" + this.pop(kind) + ";");
+      }
+      Relooper.addBranch(block.relooperBlockID, this.continuationBlock.relooperBlockID);
+    }
+
+    emitReturn(kind: Kind, block: Block) {
+      if (this.scopeData.isInline()) {
+        this.emitInlineReturn(kind, block);
+        return;
+      }
       if (this.methodInfo.isSynchronized) {
         this.emitMonitorExit(this.blockEmitter, this.lockObject);
       }
@@ -857,13 +1002,12 @@ module J2ME {
         classInfo = (<ArrayClassInfo>classInfo).elementClass;
       }
       if (!CLASSES.isPreInitializedClass(classInfo)) {
-        if (this.target === CompilationTarget.Runtime && $.initialized[classInfo.getClassNameSlow()]) {
-          var message = "Optimized ClassInitializationCheck: " + classInfo.getClassNameSlow() + ", is already initialized.";
-          baselineCounter && baselineCounter.count(message);
-        } else if (this.initializedClasses[classInfo.getClassNameSlow()]) {
+        var className = classInfo.getClassNameSlow();
+        if (this.initializedClasses[className]) {
           var message = "Optimized ClassInitializationCheck: " + classInfo.getClassNameSlow() + ", block redundant.";
           emitDebugInfoComments && this.blockEmitter.writeLn("// " + message);
           baselineCounter && baselineCounter.count(message);
+          return;
         } else if (classInfo === this.methodInfo.classInfo) {
           var message = "Optimized ClassInitializationCheck: " + classInfo.getClassNameSlow() + ", self access.";
           emitDebugInfoComments && this.blockEmitter.writeLn("// " + message);
@@ -873,6 +1017,7 @@ module J2ME {
           emitDebugInfoComments && this.blockEmitter.writeLn("// " + message);
           baselineCounter && baselineCounter.count(message);
         } else {
+          baselineCounter && baselineCounter.count("ClassInitializationCheck");
           baselineCounter && baselineCounter.count("ClassInitializationCheck: " + classInfo.getClassNameSlow());
           this.blockEmitter.writeLn("if($.initialized[\"" + classInfo.getClassNameSlow() + "\"]===undefined)" + this.runtimeClassObject(classInfo) + ".initialize();");
           if (canStaticInitializerYield(classInfo)) {
@@ -881,13 +1026,31 @@ module J2ME {
             emitCompilerAssertions && this.emitNoUnwindAssertion();
           }
         }
-        this.initializedClasses[classInfo.getClassNameSlow()] = true;
+        this.initializedClasses[className] = true;
       }
     }
 
-    emitInvoke(methodInfo: MethodInfo, opcode: Bytecodes, nextPC: number) {
+    inlineMethod(methodInfo: MethodInfo, block: Block, args) {
+      baselineCounter && baselineCounter.count("inline");
+      this.blockHadInlining = true;
+      this.flushBlockStack();
+      var inline = new BaselineCompiler(methodInfo, this.target, this.scopeData);
+      release || assert(block.successors.length === 1, "Only blocks with one successor can currently be inlined.");
+      var compiledMethod = inline.compile(block.successors[0], this.getStackName(this.sp), args);
+      var signatureKinds = methodInfo.signatureKinds;
+      if (signatureKinds[0] !== Kind.Void) {
+        this.emitPush(signatureKinds[0], "undefined", Precedence.Primary);
+      }
+      Relooper.addBranch(block.relooperBlockID, inline.blockMap.blocks[0].relooperBlockID);
+      emitDebugInfoComments && this.blockEmitter.writeLn("// inline prologue: " + methodInfo.implKey);
+      this.blockEmitter.writeLn(compiledMethod.prologue);
+      this.scopeData.root.bytecodeSize += methodInfo.codeAttribute.code.length;
+    }
+
+    emitInvoke(methodInfo: MethodInfo, opcode: Bytecodes, nextPC: number, block: Block) {
       var calleeCanYield = YieldReason.Virtual;
-      if (isStaticallyBound(opcode, methodInfo)) {
+      var staticallyBound = isStaticallyBound(opcode, methodInfo);
+      if (staticallyBound) {
         calleeCanYield = canYield(methodInfo);
       }
       if (opcode === Bytecodes.INVOKESTATIC) {
@@ -900,6 +1063,16 @@ module J2ME {
         args.unshift(this.pop(signatureKinds[i]));
       }
       var object = null, call;
+
+      if (!calleeCanYield && staticallyBound && this.isInlineCandidate(methodInfo, block)) {
+        if (opcode !== Bytecodes.INVOKESTATIC) {
+          object = this.pop(Kind.Reference);
+          args.unshift(object);
+        }
+        this.inlineMethod(methodInfo, block, args);
+        return;
+      }
+
       if (opcode !== Bytecodes.INVOKESTATIC) {
         object = this.pop(Kind.Reference);
         if (opcode === Bytecodes.INVOKESPECIAL) {
@@ -919,9 +1092,9 @@ module J2ME {
         emitDebugInfoComments && this.blockEmitter.writeLn("// Inlining: " + methodInfo.implKey);
         call = inlineMethods[methodInfo.implKey];
       }
-      this.needsVariable("re");
+      var returnVariable = this.needsVariable("re");
       this.flushBlockStack();
-      this.blockEmitter.writeLn("re=" + call + ";");
+      this.blockEmitter.writeLn(returnVariable + "=" + call + ";");
       if (calleeCanYield) {
         this.emitUnwind(this.blockEmitter, String(this.pc), String(nextPC));
       } else {
@@ -929,7 +1102,7 @@ module J2ME {
         emitCompilerAssertions && this.emitNoUnwindAssertion();
       }
       if (signatureKinds[0] !== Kind.Void) {
-        this.emitPush(signatureKinds[0], "re", Precedence.Primary);
+        this.emitPush(signatureKinds[0], returnVariable, Precedence.Primary);
       }
     }
 
@@ -1585,12 +1758,12 @@ module J2ME {
         case Bytecodes.GOTO           : this.emitGoto(block, stream); break;
         case Bytecodes.TABLESWITCH    : this.emitTableSwitch(block, stream); break;
         case Bytecodes.LOOKUPSWITCH   : this.emitLookupSwitch(block, stream); break;
-        case Bytecodes.IRETURN        : this.emitReturn(Kind.Int); break;
-        case Bytecodes.LRETURN        : this.emitReturn(Kind.Long); break;
-        case Bytecodes.FRETURN        : this.emitReturn(Kind.Float); break;
-        case Bytecodes.DRETURN        : this.emitReturn(Kind.Double); break;
-        case Bytecodes.ARETURN        : this.emitReturn(Kind.Reference); break;
-        case Bytecodes.RETURN         : this.emitReturn(Kind.Void); break;
+        case Bytecodes.IRETURN        : this.emitReturn(Kind.Int, block); break;
+        case Bytecodes.LRETURN        : this.emitReturn(Kind.Long, block); break;
+        case Bytecodes.FRETURN        : this.emitReturn(Kind.Float, block); break;
+        case Bytecodes.DRETURN        : this.emitReturn(Kind.Double, block); break;
+        case Bytecodes.ARETURN        : this.emitReturn(Kind.Reference, block); break;
+        case Bytecodes.RETURN         : this.emitReturn(Kind.Void, block); break;
         case Bytecodes.GETSTATIC      : cpi = stream.readCPI(); this.emitGetField(this.lookupField(cpi, opcode, true), true); break;
         case Bytecodes.PUTSTATIC      : cpi = stream.readCPI(); this.emitPutField(this.lookupField(cpi, opcode, true), true); break;
         case Bytecodes.RESOLVED_GETFIELD      : opcode = Bytecodes.GETFIELD;
@@ -1598,10 +1771,10 @@ module J2ME {
         case Bytecodes.RESOLVED_PUTFIELD      : opcode = Bytecodes.PUTFIELD;
         case Bytecodes.PUTFIELD               : cpi = stream.readCPI(); this.emitPutField(this.lookupField(cpi, opcode, false), false); break;
         case Bytecodes.RESOLVED_INVOKEVIRTUAL : opcode = Bytecodes.INVOKEVIRTUAL;
-        case Bytecodes.INVOKEVIRTUAL          : cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, false), opcode, stream.nextBCI); break;
-        case Bytecodes.INVOKESPECIAL  : cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, false), opcode, stream.nextBCI); break;
-        case Bytecodes.INVOKESTATIC   : cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, true), opcode, stream.nextBCI); break;
-        case Bytecodes.INVOKEINTERFACE: cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, false), opcode, stream.nextBCI); break;
+        case Bytecodes.INVOKEVIRTUAL          : cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, false), opcode, stream.nextBCI, block); break;
+        case Bytecodes.INVOKESPECIAL  : cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, false), opcode, stream.nextBCI, block); break;
+        case Bytecodes.INVOKESTATIC   : cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, true), opcode, stream.nextBCI, block); break;
+        case Bytecodes.INVOKEINTERFACE: cpi = stream.readCPI(); this.emitInvoke(this.lookupMethod(cpi, opcode, false), opcode, stream.nextBCI, block); break;
         case Bytecodes.NEW            : this.emitNewInstance(stream.readCPI()); break;
         case Bytecodes.NEWARRAY       : this.emitNewTypeArray(stream.readLocalIndex()); break;
         case Bytecodes.ANEWARRAY      : this.emitNewObjectArray(stream.readCPI()); break;
