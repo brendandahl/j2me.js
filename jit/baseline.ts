@@ -54,7 +54,7 @@ module J2ME {
   /**
    * Emits control flow and yielding assertions.
    */
-  var emitCompilerAssertions = false;
+  var emitCompilerAssertions = true;
 
   /**
    * Emits profiling code that counts the number of times a method is invoked.
@@ -106,7 +106,7 @@ module J2ME {
   /**
    * Emits preemption checks for methods that already yield.
    */
-  export var emitCheckPreemption = false;
+  export var emitCheckPreemption = true;
 
   export function baselineCompileMethod(methodInfo: MethodInfo, target: CompilationTarget): CompiledMethodInfo {
     var compileExceptions = true;
@@ -1092,6 +1092,7 @@ module J2ME {
 
     private emitUnwind(emitter: Emitter, pc: string, nextPC: string, forceInline: boolean = false) {
       // Only emit unwind throws if it saves on code size.
+      forceInline = true; /* NOT NEEDED USING FOR DEBUGGING */
       if (!forceInline && this.blockMap.invokeCount > 2 &&
           this.stack.length < 8) {
         this.flushBlockStack();
@@ -1110,11 +1111,11 @@ module J2ME {
     }
 
     emitNoUnwindAssertion() {
-      this.blockEmitter.writeLn("if(U){J2ME.Debug.assert(false,'Unexpected unwind.');}");
+      this.blockEmitter.writeLn("if(U){debugger; J2ME.Debug.assert(false,'Unexpected unwind.');}");
     }
 
     emitUndefinedReturnAssertion() {
-      this.blockEmitter.writeLn("if (U && re !== undefined) { J2ME.Debug.assert(false, 'Unexpected return value during unwind.'); }");
+      this.blockEmitter.writeLn("if (debugger; U && re !== undefined) { J2ME.Debug.assert(false, 'Unexpected return value during unwind.'); }");
     }
 
     private emitMonitorEnter(emitter: Emitter, nextPC: number, object: string) {
@@ -1133,7 +1134,8 @@ module J2ME {
       }
       emitter.writeLn("PS++;");
       emitter.writeLn("if((PS&" + preemptionSampleMask + ")===0)PE();");
-      this.emitUnwind(emitter, String(nextPC), String(nextPC));
+      /* WE DONT HAVE TO FORCE THIS INLINE AND SHOULD MOVE IT DOWN INTO THE TRY */
+      this.emitUnwind(emitter, String(nextPC), String(nextPC), true);
     }
 
     private emitMonitorExit(emitter: Emitter, object: string) {

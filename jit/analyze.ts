@@ -208,6 +208,7 @@ module J2ME {
   }
 
   export function canStaticInitializerYield(classInfo: ClassInfo): YieldReason {
+    return YieldReason.Likely;
     var result = YieldReason.None;
     while (classInfo) {
       var staticInitializer = classInfo.staticInitializer;
