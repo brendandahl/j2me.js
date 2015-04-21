@@ -1115,7 +1115,7 @@ module J2ME {
     }
 
     emitUndefinedReturnAssertion() {
-      this.blockEmitter.writeLn("if (debugger; U && re !== undefined) { J2ME.Debug.assert(false, 'Unexpected return value during unwind.'); }");
+      this.blockEmitter.writeLn("if (U && re !== undefined) { debugger; J2ME.Debug.assert(false, 'Unexpected return value during unwind.'); }");
     }
 
     private emitMonitorEnter(emitter: Emitter, nextPC: number, object: string) {
