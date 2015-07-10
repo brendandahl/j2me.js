@@ -1595,15 +1595,6 @@ module J2ME {
       return this.superClass ? this.superClass.isAssignableTo(toClass) : false;
     }
 
-    /**
-     * java.lang.Class object for this class info. This is a not where static properties
-     * are stored for this class.
-     */
-    getClassObject(): java.lang.Class {
-      throw new (<any>window).TODODERROR();
-    }
-
-
     // PROBABLY WANT TO IMPLEMENT THIS
   //  /**
   //   * Creates lookup tables used to efficiently implement type checks.

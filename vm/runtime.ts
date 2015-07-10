@@ -725,7 +725,6 @@ module J2ME {
     }
   }
 
-  export var klassIdMap = Object.create(null);
   export var classIdToClassInfoMap: Map<number, ClassInfo> = Object.create(null);
 
   export function getObjectClassId(addr: number) {
@@ -1765,10 +1764,10 @@ module J2ME {
       return;
     }
 
-    var arrayKlass = klassIdMap[i32[arrayAddr + Constants.OBJ_KLASS_ID_OFFSET >> 2]];
-    var valueKlass = klassIdMap[i32[valueAddr + Constants.OBJ_KLASS_ID_OFFSET >> 2]];
+    var arrayClassInfo = classIdToClassInfoMap[i32[arrayAddr + Constants.OBJ_KLASS_ID_OFFSET >> 2]];
+    var valueClassInfo = classIdToClassInfoMap[i32[valueAddr + Constants.OBJ_KLASS_ID_OFFSET >> 2]];
 
-    if (!isAssignableTo(valueKlass, arrayKlass.elementKlass)) {
+    if (!isAssignableTo(valueClassInfo, arrayClassInfo.elementClass)) {
       throw $.newArrayStoreException();
     }
   }

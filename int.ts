@@ -443,9 +443,8 @@ module J2ME {
         frame.setParameter(kinds[i], index++, arguments[i]);
       }
       if (methodInfo.isSynchronized) {
-        debugger;
-        var monitor = methodInfo.isStatic ? methodInfo.classInfo.getClassObject() : getMonitor(arguments[0]);
-        frame.monitor = monitor; // XXX This doesn't seem to be used; delete?
+        var monitor = methodInfo.isStatic ? $.getClassObjectAddress(methodInfo.classInfo) : arguments[0];
+        frame.monitor = getMonitor(monitor); // XXX This doesn't seem to be used; delete?
         $.ctx.monitorEnter(monitor);
         release || assert(U !== VMState.Yielding, "Monitors should never yield.");
         if (U === VMState.Pausing || U === VMState.Stopping) {
@@ -1839,7 +1838,7 @@ module J2ME {
 
             if (calleeTargetMethodInfo.isSynchronized) {
               monitor = calleeTargetMethodInfo.isStatic
-                ? calleeTargetMethodInfo.classInfo.getClassObject()
+                ? getMonitor($.getClassObjectAddress(calleeTargetMethodInfo.classInfo))
                 : getMonitor(address);
               ref[fp + FrameLayout.MonitorOffset] = monitor;
               $.ctx.monitorEnter(monitor);
