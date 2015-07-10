@@ -1865,7 +1865,7 @@ module J2ME {
 
         thread.set(fp, sp, opPC);
         e = translateException(e);
-        if (!e.klass) {
+        if (!e.classInfo) {
           // A non-java exception was thrown. Rethrow so it is not handled by exceptionUnwind.
           throw e;
         }
