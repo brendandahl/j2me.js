@@ -357,7 +357,8 @@ Native["java/lang/Class.init9.()V"] = function(addr) {
 
 Native["java/lang/Class.getName.()Ljava/lang/String;"] = function(addr) {
     var self = getHandle(addr);
-    return J2ME.newString(self.runtimeKlass.templateKlass.classInfo.getClassNameSlow().replace(/\//g, "."));
+    var classInfo = J2ME.classIdToClassInfoMap[self.vmClass];
+    return J2ME.newString(classInfo.getClassNameSlow().replace(/\//g, "."));
 };
 
 Native["java/lang/Class.forName0.(Ljava/lang/String;)V"] = function(addr, nameAddr) {
