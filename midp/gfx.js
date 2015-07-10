@@ -412,22 +412,22 @@ var currentlyFocusedTextEditor;
         return len + emojiLen;
     }
 
-    var defaultFont;
+    var defaultFontAddress;
     function getDefaultFont() {
-        if (!defaultFont) {
-            var classInfo = CLASSES.loadAndLinkClass("javax/microedition/lcdui/Font");
-            defaultFont = new classInfo.klass();
+        if (!defaultFontAddress) {
+            var classInfo = CLASSES.loadClass("javax/microedition/lcdui/Font");
+            defaultFontAddress = J2ME.allocObject(classInfo);
             var methodInfo = classInfo.getMethodByNameString("<init>", "(III)V", false);
             J2ME.preemptionLockLevel++;
-            J2ME.getLinkedMethod(methodInfo)(defaultFont._address, 0, 0, 0);
+            J2ME.getLinkedMethod(methodInfo)(defaultFontAddress, 0, 0, 0);
             release || J2ME.Debug.assert(!U, "Unexpected unwind during createException.");
             J2ME.preemptionLockLevel--;
         }
-        return defaultFont;
+        return getHandle(defaultFontAddress);
     }
 
     Native["javax/microedition/lcdui/Font.getDefaultFont.()Ljavax/microedition/lcdui/Font;"] = function(addr) {
-        return getDefaultFont()._address;
+        return getDefaultFont();
     };
 
     Native["javax/microedition/lcdui/Font.stringWidth.(Ljava/lang/String;)I"] = function(addr, strAddr) {
