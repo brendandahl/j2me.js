@@ -18,7 +18,7 @@ module J2ME {
         x.push(String.fromCharCode(o[i]));
       }
       var suffix = (o.length > 8 ? "..." : "");
-      return fromUTF8(o.klass.classInfo.utf8Name) +
+      return fromUTF8(o.classInfo.utf8Name) +
         ", length: " + o.length +
         ", values: [" + s.join(", ") + suffix + "]" +
         ", chars: \"" + x.join("") + suffix + "\"";
@@ -27,15 +27,15 @@ module J2ME {
       if (o.length !== undefined) {
         return getArrayInfo(o);
       }
-      return fromUTF8(o.klass.classInfo.utf8Name) + (o._address ? " " + toHEX(o._address) : "");
+      return fromUTF8(o.classInfo.utf8Name) + (o._address ? " " + toHEX(o._address) : "");
     }
-    if (o && !o.klass) {
+    if (o && !o.classInfo) {
       return o;
     }
-    if (o && o.klass === Klasses.java.lang.Class) {
-      return "[" + getObjectInfo(o) + "] " + o.runtimeKlass.templateKlass.classInfo.getClassNameSlow();
+    if (o && o.classInfo === CLASSES.java_lang_Class) {
+      return "[" + getObjectInfo(o) + "] " + classIdToClassInfoMap[o.vmClass].getClassNameSlow();
     }
-    if (o && o.klass === Klasses.java.lang.String) {
+    if (o && o.classInfo === CLASSES.java_lang_String) {
       return "[" + getObjectInfo(o) + "] \"" + fromStringAddr(o._address) + "\"";
     }
     return o ? ("[" + getObjectInfo(o) + "]") : "null";
