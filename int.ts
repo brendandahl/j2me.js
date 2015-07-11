@@ -1402,7 +1402,7 @@ module J2ME {
               thread.throwException(fp, sp, opPC, ExceptionType.NullPointerException);
               continue;
             }
-            i32[sp++] = i32[(arrayAddr >> 2) + 1];
+            i32[sp++] = i32[(arrayAddr + Constants.ARRAY_LENGTH_OFFSET >> 2)];
             continue;
           case Bytecodes.GETFIELD:
           case Bytecodes.GETSTATIC:
