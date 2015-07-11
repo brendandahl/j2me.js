@@ -1554,8 +1554,6 @@ module J2ME {
     return object._address;
   }
 
-  export var arrayMap = Object.create(null);
-
   export function getArrayFromAddr(addr: number) {
     if (addr === Constants.NULL) {
       return null;
@@ -1627,7 +1625,7 @@ module J2ME {
   export function newMultiArray(classInfo: ClassInfo, lengths: number[]): number {
     var length = lengths[0];
     var arrayAddr = newArray(classInfo.elementClass, length);
-    var array = arrayMap[arrayAddr];
+    var array = getHandle(arrayAddr);
     if (lengths.length > 1) {
       lengths = lengths.slice(1);
       for (var i = 0; i < length; i++) {
