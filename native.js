@@ -303,7 +303,7 @@ function(addr, srcAddr, srcOffset, dstAddr, dstOffset, length) {
     var src = J2ME.getArrayFromAddr(srcAddr);
     var dst = J2ME.getArrayFromAddr(dstAddr);
 
-    if (dst !== src || dstOffset < srcOffset) {
+    if (srcAddr !== dstAddr || dstOffset < srcOffset) {
         for (var n = 0; n < length; ++n) {
             dst[dstOffset++] = src[srcOffset++];
         }
