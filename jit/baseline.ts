@@ -814,7 +814,7 @@ module J2ME {
     }
 
     runtimeClass(classInfo: ClassInfo) {
-      return "$.SA(" + classInfo.id + ")";
+      return "($.staticObjectAddresses[" + classInfo.id + "] || $.SA(" + classInfo.id + "))";
     }
 
     runtimeClassObject(classInfo: ClassInfo) {
