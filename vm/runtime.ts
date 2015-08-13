@@ -436,10 +436,10 @@ module J2ME {
     }
 
     getStaticObjectAddress(classInfo: ClassInfo): number {
-      if (!this.staticObjectAddresses[classInfo.mangledName]) {
-        $.staticObjectAddresses[classInfo.mangledName] = ASM._gcMallocUncollectable(J2ME.Constants.OBJ_HDR_SIZE + classInfo.sizeOfStaticFields);
+      if (!this.staticObjectAddresses[classInfo.id]) {
+        $.staticObjectAddresses[classInfo.id] = ASM._gcMallocUncollectable(J2ME.Constants.OBJ_HDR_SIZE + classInfo.sizeOfStaticFields);
       }
-      return this.staticObjectAddresses[classInfo.mangledName];
+      return this.staticObjectAddresses[classInfo.id];
     }
 
     /**
