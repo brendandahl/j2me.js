@@ -238,14 +238,19 @@ module J2ME {
     var resultAddr = J2ME.Constants.NULL;
     var stackTrace = <[any]>NativeMap.get(addr);
     if (stackTrace) {
+      // The order in which these are created is important since GC can happen during any malloc.
+      resultAddr = J2ME.newObjectArray(4);
+      J2ME.setUncollectable(resultAddr);
+      var result = J2ME.getArrayFromAddr(resultAddr);
       var depth = stackTrace.length;
-      var classNamesAddr = J2ME.newStringArray(depth);
+      var classNamesAddr = result[0] = J2ME.newStringArray(depth);
+      var methodNamesAddr = result[1] = J2ME.newStringArray(depth);
+      var methodSignaturesAddr = result[2] = J2ME.newStringArray(depth);
+      var offsetsAddr = result[3] = J2ME.newIntArray(depth);
+
       var classNames = J2ME.getArrayFromAddr(classNamesAddr);
-      var methodNamesAddr = J2ME.newStringArray(depth);
       var methodNames = J2ME.getArrayFromAddr(methodNamesAddr);
-      var methodSignaturesAddr = J2ME.newStringArray(depth);
       var methodSignatures = J2ME.getArrayFromAddr(methodSignaturesAddr);
-      var offsetsAddr = J2ME.newIntArray(depth);
       var offsets = J2ME.getArrayFromAddr(offsetsAddr);
       stackTrace.forEach(function(e, n) {
         if (e.frameType === FrameType.Interpreter) {
@@ -261,12 +266,7 @@ module J2ME {
           offsets[n] = e.pc;
         }
       });
-      resultAddr = J2ME.newObjectArray(4);
-      var result = J2ME.getArrayFromAddr(resultAddr);
-      result[0] = classNamesAddr;
-      result[1] = methodNamesAddr;
-      result[2] = methodSignaturesAddr;
-      result[3] = offsetsAddr;
+      J2ME.unsetUncollectable(resultAddr);
     }
     return resultAddr;
   };
