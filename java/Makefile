@@ -31,7 +31,7 @@ classes.jar: $(SRCS) $(JPP_DESTS) $(EXTRA)
 	#       for all methods pass.
 	#java -jar ../build_tools/soot-trunk.jar -j2me -process-dir build -no-output-source-file-attribute -no-output-inner-classes-attribute -force-overwrite -include-all 2>&1 > /dev/null
 	#cp -a sootOutput/. build/
-	cd build && jar cf0 ../classes.jar *
+	cd build && jar cf ../classes.jar *
 	jar uf0 classes.jar $(EXTRA)
 
 tools/Jpp.class: tools/Jpp.java

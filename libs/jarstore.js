@@ -142,6 +142,21 @@ var JARStore = (function() {
       bytes = entry.compressed_data;
     } else if (entry.compression_method === 8) {
       bytes = inflate(entry.compressed_data, entry.uncompressed_len);
+      //var compressedData = entry.compressed_data;
+      //var inBufLength = compressedData.length * compressedData.BYTES_PER_ELEMENT;
+      //var inBuf = Module._malloc(inBufLength);
+      //Module.HEAPU8.set(compressedData, inBuf);
+      //var outBuf = Module._malloc(entry.uncompressed_len);
+      //ASM._inflate(inBuf, inBufLength, outBuf, entry.uncompressed_len);
+      //
+      //var u8 = ASM.HEAPU8;
+      //var out = new Uint8Array(entry.uncompressed_len);
+      //for (var j = 0; j < entry.uncompressed_len; j++) {
+      //  out[j] = u8[outBuf + j];
+      //}
+      //Module._free(outBuf);
+      //Module._free(inBuf);
+      //bytes = out;
     } else {
       return null;
     }
