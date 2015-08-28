@@ -66,28 +66,28 @@ module J2ME {
        * because they don't have any static state.
        */
       var classNames = [
-        "java/lang/Integer",
-        "java/lang/Character",
-        "java/lang/Math",
-        "java/util/HashtableEntry",
-        "java/lang/StringBuffer",
-        "java/util/Vector",
-        "java/io/IOException",
-        "java/lang/IllegalArgumentException",
-        // Preload the Isolate class, that is needed to start the VM (see context.ts)
-        "com/sun/cldc/isolate/Isolate",
-        "org/mozilla/internal/Sys",
-        "java/lang/System",
-        "java/lang/RuntimeException",
-        "java/lang/IllegalStateException",
-        "java/lang/Long",
-        "java/lang/NullPointerException",
-        "java/lang/Boolean",
-        "java/util/Hashtable",
-        "java/lang/IndexOutOfBoundsException",
-        "java/lang/StringIndexOutOfBoundsException",
-        // Preload the Isolate class, that is needed to start the VM (see jvm.ts)
-        "com/sun/cldc/isolate/Isolate",
+        //"java/lang/Integer",
+        //"java/lang/Character",
+        //"java/lang/Math",
+        //"java/util/HashtableEntry",
+        //"java/lang/StringBuffer",
+        //"java/util/Vector",
+        //"java/io/IOException",
+        //"java/lang/IllegalArgumentException",
+        //// Preload the Isolate class, that is needed to start the VM (see context.ts)
+        //"com/sun/cldc/isolate/Isolate",
+        //"org/mozilla/internal/Sys",
+        //"java/lang/System",
+        //"java/lang/RuntimeException",
+        //"java/lang/IllegalStateException",
+        //"java/lang/Long",
+        //"java/lang/NullPointerException",
+        //"java/lang/Boolean",
+        //"java/util/Hashtable",
+        //"java/lang/IndexOutOfBoundsException",
+        //"java/lang/StringIndexOutOfBoundsException",
+        //// Preload the Isolate class, that is needed to start the VM (see jvm.ts)
+        //"com/sun/cldc/isolate/Isolate",
       ];
 
       for (var i = 0; i < classNames.length; i++) {

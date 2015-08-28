@@ -461,7 +461,10 @@ module J2ME {
     CONSTANT_NameAndType = 12,
     CONSTANT_Utf8 = 1,
     CONSTANT_Unicode = 2,
-    CONSTANT_Any = 13 // NON-STANDARD
+    CONSTANT_Any = 13, // NON-STANDARD
+    CONSTANT_MethodHandle = 15,
+    CONSTANT_MethodType = 16,
+    CONSTANT_InvokeDynamic = 18
   }
 
   export function getTAGSName(tag: TAGS): string {
@@ -495,7 +498,13 @@ module J2ME {
        4, // CONSTANT_Fieldref,
        4, // CONSTANT_Methodref
        4, // CONSTANT_InterfaceMethodref
-       4  // CONSTANT_NameAndType
+       4, // CONSTANT_NameAndType
+      -1, // unused
+      -1, // unused
+       3, // CONSTANT_MethodHandle
+       2, // CONSTANT_MethodType
+      -1, // unused
+       4  // CONSTANT_InvokeDynamic
     ]);
 
     constructor(stream: ByteStream) {
@@ -520,10 +529,13 @@ module J2ME {
       for (var i = 1; i < c; i++) {
         e[i] = o;
         var t = buffer[o++];
+        console.log((<any>J2ME).TAGS[t]);
         if (t === TAGS.CONSTANT_Utf8) {
           o += 2 + ByteStream.readU16(buffer, o);
         } else {
-          o += S[t];
+          var tagSize = S[t];
+          release || assert(tagSize > 0, "Unhandled tag " + t);
+          o += tagSize;
         }
         if (t === TAGS.CONSTANT_Long || t === TAGS.CONSTANT_Double) {
           i++;

@@ -38,8 +38,8 @@ var loadingMIDletPromises = [initFS, getMobileInfo];
 
 var loadingPromises = [];
 
-loadingPromises.push(load("java/classes.jar", "arraybuffer").then(function(data) {
-  JARStore.addBuiltIn("java/classes.jar", data);
+loadingPromises.push(load("jars~/rt.jar", "arraybuffer").then(function(data) {
+  JARStore.addBuiltIn("jars~/rt.jar", data);
   CLASSES.initializeBuiltinClasses();
 }));
 
